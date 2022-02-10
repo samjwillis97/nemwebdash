@@ -181,6 +181,8 @@
 
 	// PANCAKE PLOT
 
+	let closest;
+
 	let xMin = +Infinity;
 	let xMax = -Infinity;
 	let yMin = +Infinity;
@@ -201,7 +203,7 @@
 		return points.concat(unit.data.map(d => ({
 			x: d.x,
 			y: d.y,
-			unit: unit.unit
+			unit
 		})));
 	}, []);
 
@@ -373,7 +375,7 @@
 	</div>
 	<!-- Main Plot -->
 	<div class="w-full md:w-7/12 border border-gray-400 rounded">
-		<div class="chart">
+		<div class="w-full h-full py-5 px-10">
 			<Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
 				<Pancake.Grid horizontal count={10} let:value>
 					<div class="grid-line horizontal"><span>{value}</span></div>
@@ -389,7 +391,25 @@
 							<path class="data" {d}></path>
 						</Pancake.SvgLine>
 					{/each}
+
+					{#if closest}
+						<Pancake.SvgLine data={closest.unit.data} let:d>
+							<path class="highlight" {d}></path>
+						</Pancake.SvgLine>
+					{/if}
 				</Pancake.Svg>
+
+				{#if closest}
+					<Pancake.Point x={closest.x} y={closest.y}>
+						<span class="annotation-point"></span>
+						<div class="annotation" style="transform: translate(-{100 * ((closest.x - xMin)/(xMax-xMin))}%,0)">
+							<strong>{closest.unit.unit}</strong>
+							<span>{closest.x}: {closest.y}</span>
+						</div>
+					</Pancake.Point>
+				{/if}
+
+				<Pancake.Quadtree data={points} bind:closest/>
 				
 			</Pancake.Chart>
 		</div>
@@ -398,7 +418,6 @@
 
 <style>
 	.chart {
-		height: 400px;
 		padding: 3em 0 2em 2em;
 		margin: 0 0 36px 0;
 	}
