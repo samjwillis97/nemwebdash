@@ -10,7 +10,17 @@
 	let units = [];
 	$: filteredUnits = [];
 
-	let functionList = ['mean', 'last'];
+	let functionList = [
+		'mean',
+		"median",
+		"min",
+		"max",
+		"first",
+		'last',
+		"sum",
+		"unique",
+		"distinct",
+	];
 	let functionSelection = 'mean'
 
 	let windowSelection = {
@@ -19,13 +29,29 @@
 	}
 	let windowUnit = [
 		{
+			label: 'sec',
+			value: 's',
+		},
+		{
 			label: 'min',
 			value: 'm',
 		},
 		{
 			label: 'hr',
 			value: 'h',
-		}
+		},
+		{
+			label: 'day',
+			value: 'd',
+		},
+		{
+			label: 'week',
+			value: 'w',
+		},
+		{
+			label: 'month',
+			value: 'mo',
+		},
 	]
 	let windowNumber = 20
 
@@ -65,6 +91,18 @@
 			}))]
 		})
 	})
+
+	function onAggFnChange(event) {
+		if (event.detail != null) {
+			functionSelection = event.detail.value
+		}
+	}
+
+	function onAggWindowPeriodChange(event) {
+		if (event.detail != null) {
+			windowSelection = event.detail
+		}
+	}
 
 	function onRegionSelect(event) {
 		if (event.detail != null) {
@@ -269,6 +307,7 @@
 						isMulti={false}
 						isSearchable={true}
 						showIndicator={true}
+						on:select={onAggFnChange}
 					/>
 				</div>
 			</div>
@@ -286,6 +325,7 @@
 						isMulti={false}
 						isSearchable={true}
 						showIndicator={true}
+						on:select={onAggWindowPeriodChange}
 					/>
 				</div>
 			</div>
