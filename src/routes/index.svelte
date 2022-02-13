@@ -5,7 +5,7 @@
 	import { DateInput } from 'date-picker-svelte';
 	import { onMount } from 'svelte';
 
-	let baseURL = 'http://localhost:3006'
+	let baseURL = 'http://localhost:3005'
 
 	let units = [];
 	$: filteredUnits = [];
@@ -151,19 +151,50 @@
 		}
 
 		filteredUnits = filtered
+	}
+
+	function plotUnits() {
 		getData()
 	}
 
+	function handleKeydown(event) {
+		if (event.key == "Enter") {
+			plotUnits()
+		}
+	}
 
-	let data = testData;
+	// let data = testData;
+	let data = [];
 
-	function getData() {
-		preProcessData()
-		calcMinMax()
-		console.log(points)
+	async function getData() {
+		let toPlot = filteredUnits.map((v) => {
+			return v.duid
+		})
+
+		let query = (
+			'?duid=' + toPlot.join('&duid=')
+			+ '&range.start=' + startDate.toISOString()
+			+ '&range.end=' + endDate.toISOString()
+			+ '&aggregate.every=' + windowNumber + windowSelection.value
+			+ '&aggregate.fn=' + functionSelection
+		)
+
+		console.log(query)
+
+		await fetch(baseURL + '/data/generation' + query, {
+			mode: 'cors',
+		}).then(function(a) {
+			return a.json();
+		}).then(function(a) {
+			data = a
+			preProcessData()
+			calcMinMax()
+		})
+
 	}
 
 	function preProcessData() {
+		console.log("Start Pre process")
 		data = data.map(unit => {
 			unit.data = unit.data.map(d => {
 				if (typeof d.time == "string") {
@@ -209,6 +240,7 @@
 
 </script>
 
+<svelte:window on:keydown={handleKeydown}/>
 <!-- Checkboxes for -> Rooftop, Demand -->
 <!-- Range will be a numeric field with dropdown for h/m/s/d/w/mo -->
 <!-- Dropdowns for Aggregate and Function  -->
@@ -277,7 +309,7 @@
 			</div>
 		</div>
 		<!-- Rooftop + Demand Filter-->
-		<div class="w-full">Include:</div>
+		<!-- <div class="w-full">Include:</div>
 		<div class="flex flex-wrap">
 			<div class="w-full md:w-1/2">
 				<input type="checkbox" class="mx-1" bind:value={rooftop}/> Rooftop
@@ -285,7 +317,7 @@
 			<div class="w-full md:w-1/2">
 				<input type="checkbox" class="mx-1" bind:value={demand}/> Demand
 			</div>
-		</div>
+		</div> -->
 		<!-- Filters -->
 		<div class="w-full">Filters:</div>
 		<!-- Region -->
@@ -355,6 +387,8 @@
 			/>
 		</div>
 		<div class="flex flex-wrap h-48 border rounded border-gray-200 place-content-center justify-center ">
+		<!-- Search Results -->
+		<!-- Show the Unit ID and the Station Name-->
 			{#if filteredUnits.length > 0}
 			<div class="w-full overflow-auto h-48">
 				{#each filteredUnits as item}
@@ -370,19 +404,35 @@
 			</div>
 			{/if}
 		</div>
-		<!-- Search Results -->
-		<!-- Show the Unit ID and the Station Name-->
+		<div class="w-full">
+			<button on:click={plotUnits} class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+				Plot
+			</button>
+		</div>
 	</div>
 	<!-- Main Plot -->
 	<div class="w-full md:w-7/12 border border-gray-400 rounded">
-		<div class="w-full h-full py-5 px-10">
+		<div class="w-full h-full py-5 pb-12 pl-10">
 			<Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
 				<Pancake.Grid horizontal count={10} let:value>
 					<div class="grid-line horizontal"><span>{value}</span></div>
 				</Pancake.Grid>
 
 				<Pancake.Grid vertical count={5} let:value>
-					<span class="x-label">{value}</span>
+					<div class="grid-line vertical"></div>
+					<span class="x-label">{
+						new Date(value).toLocaleString("en-gb", {
+							hour12: false,
+							hour: "2-digit",
+							minute: "2-digit",
+							second: "2-digit",
+						}) + "\n" + 
+						new Date(value).toLocaleString("en-gb", {
+							day: "numeric",
+							month: "2-digit",
+							year: "2-digit",
+						})
+					}</span>
 				</Pancake.Grid>
 
 				<Pancake.Svg>
@@ -404,7 +454,17 @@
 						<span class="annotation-point"></span>
 						<div class="annotation" style="transform: translate(-{100 * ((closest.x - xMin)/(xMax-xMin))}%,0)">
 							<strong>{closest.unit.unit}</strong>
-							<span>{closest.x}: {closest.y}</span>
+							<span>{new Date(closest.x).toLocaleString("en-gb", {
+								day: "numeric",
+								month: "2-digit",
+								year: "2-digit",
+							})}</span>
+							<span>{new Date(closest.x).toLocaleString("en-gb", {
+								hour12: false,
+								hour: "2-digit",
+								minute: "2-digit",
+								second:"2-digit"
+							})}: {Math.round(closest.y)}</span>
 						</div>
 					</Pancake.Point>
 				{/if}
@@ -439,6 +499,11 @@
 		border-bottom: 1px dashed #ccc;
 	}
 
+	.grid-line.vertical {
+		height: 100%;
+		border-left: 1px dashed #ccc;
+	}
+
 	.grid-line span {
 		position: absolute;
 		left: 0;
@@ -452,7 +517,7 @@
 		position: absolute;
 		width: 4em;
 		left: -2em;
-		bottom: -22px;
+		bottom: -50px;
 		font-family: sans-serif;
 		font-size: 14px;
 		color: #999;
