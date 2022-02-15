@@ -1,6 +1,5 @@
 <script>
 	import * as Pancake from '@sveltejs/pancake';
-	import { testData } from './testdata';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
 	import { onMount } from 'svelte';
@@ -60,8 +59,8 @@
 	let tempDate = endDate.getDate() - 7;
 	startDate.setDate(tempDate)
 
-	let rooftop = true
-	let demand = false
+	// let rooftop = true
+	// let demand = false
 
 	let regionList = null
 	let regionSelection = null
@@ -192,7 +191,9 @@
 	}
 
 	function plotUnits() {
-		getData()
+		if (!loading) {
+			getData()
+		}
 	}
 
 	function handleKeydown(event) {
@@ -217,7 +218,7 @@
 			+ '&aggregate.fn=' + functionSelection
 		)
 
-		console.log(query)
+		loading = true
 
 		await fetch(baseURL + '/data/generation' + query, {
 			mode: 'cors',
@@ -229,6 +230,7 @@
 			calcMinMax()
 		})
 
+		loading = false
 	}
 
 	function preProcessData() {
@@ -248,16 +250,27 @@
 		})
 	}
 
+	function getUnitStationName(unit) {
+		return (units.filter((v) => {
+			return v.duid == unit
+		})[0].staion_name)
+	}
+
 	// PANCAKE PLOT
 
 	let closest;
+	$: loading = false
 
-	let xMin = +Infinity;
-	let xMax = -Infinity;
-	let yMin = +Infinity;
-	let yMax = -Infinity;
+	$: xMin = +Infinity;
+	$: xMax = -Infinity;
+	$: yMin = +Infinity;
+	$: yMax = -Infinity;
 
 	function calcMinMax() {
+		xMin = +Infinity;
+		xMax = -Infinity;
+		yMin = +Infinity;
+		yMax = -Infinity;
 		data.forEach(unit=> {
 			unit.data.forEach(d => {
 				if (d.x < xMin) xMin = d.x;
@@ -269,6 +282,7 @@
 	}
 
 	$: points = data.reduce((points, unit) => {
+		console.log(unit)
 		return points.concat(unit.data.map(d => ({
 			x: d.x,
 			y: d.y,
@@ -287,15 +301,15 @@
 <!-- Responsive Grid -->
 <div class="flex flex-wrap content-center justify-center h-screen">
 	<!-- Left Side Menu -->
-	<div class="w-full md:w-3/12 place-content-center">
+	<div class="w-full md:w-3/12 pr-4 place-content-center text-sm text-gray-600">
 		<!-- Aggregation -->
-		<div class="flex flex-wrap">
+		<div class="flex flex-wrap pb-1 pt-2">
 			<!-- Left Side -->
 			<div class="flex w-full md:w-5/12">Aggregation</div>
 			<!-- Right Side -->
-			<div class="flex w-full md:w-7/12">Window Period</div>
+			<div class="flex w-full md:w-7/12 pl-6">Window Period</div>
 		</div>
-		<div class="flex flex-wrap">
+		<div class="flex flex-wrap justify-between px-2 pt-0.5 pb-2">
 			<!-- Left Side -->
 			<div class="flex w-full md:w-5/12">
 				<div class="w-full">
@@ -312,8 +326,8 @@
 				</div>
 			</div>
 			<!-- Right Side -->
-			<div class="flex w-full md:w-3/12">
-				<input class="w-full" type="number" bind:value={windowNumber}/>
+			<div class="flex w-full md:w-3/12 pl-2 pr-0">
+				<input class="w-full ml-3 border rounded" type="number" bind:value={windowNumber}/>
 			</div>
 			<div class="flex w-full md:w-3/12">
 				<div class="w-full">
@@ -332,19 +346,19 @@
 
 		</div>
 		<!-- DateTime -->
-		<div class="flex flex-wrap">
+		<div class="flex flex-wrap pb-1 pt-2">
 			<!-- Left Side -->
 			<div class="flex w-full md:w-6/12">Start Date</div>
 			<!-- Right Side -->
-			<div class="flex w-full md:w-6/12">End Date</div>
+			<div class="flex w-full pl-3 md:w-6/12">End Date</div>
 		</div>
-		<div class="flex flex-wrap">
+		<div class="flex flex-wrap px-2 pb-2 pt-0.5">
 			<!-- Left Side -->
 			<div class="flex w-full md:w-6/12 text-xs">
 				<DateInput bind:value={startDate}/>
 			</div>
 			<!-- Right Side -->
-			<div class="flex w-full md:w-6/12 text-xs">
+			<div class="flex w-full justify-end md:w-6/12 text-xs">
 				<DateInput bind:value={endDate}/>
 			</div>
 		</div>
@@ -359,9 +373,9 @@
 			</div>
 		</div> -->
 		<!-- Filters -->
-		<div class="w-full">Filters:</div>
+		<div class="w-full pb-1 pt-2">Filters</div>
 		<!-- Region -->
-		<div class="w-full">
+		<div class="w-full px-2 py-0.5">
 			<Select
 				items={regionList}
 				value={regionSelection}
@@ -374,7 +388,7 @@
 			/>
 		</div>
 		<!-- Technology -->
-		<div class="w-full">
+		<div class="w-full px-2 py-0.5">
 			<Select
 				items={technologyList}
 				value={technologySelection}
@@ -387,7 +401,7 @@
 			/>
 		</div>
 		<!-- Fuel Source -->
-		<div class="w-full">
+		<div class="w-full px-2 py-0.5">
 			<Select
 				items={sourceList}
 				value={sourceSelection}
@@ -400,7 +414,7 @@
 			/>
 		</div>
 		<!-- Search -->
-		<div class="w-full">
+		<div class="w-full p-2">
 			<input
 				type="text"
 				class="
@@ -421,20 +435,20 @@
 					m-0
 					focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none
 				"
-				placeholder="Search"
+				placeholder="Search..."
 				bind:value={search}
 				on:input={filterUnits}
 			/>
 		</div>
-		<div class="flex flex-wrap h-48 border rounded border-gray-200 place-content-center justify-center ">
+		<div class="flex flex-wrap p-2 h-48 border rounded border-gray-200 place-content-center justify-center ">
 		<!-- Search Results -->
 		<!-- Show the Unit ID and the Station Name-->
 			{#if filteredUnits.length > 0}
 			<div class="w-full overflow-auto h-48">
 				{#each filteredUnits as item}
-				<div class="border-b border-gray-300">
-					<div>{item.duid}</div>
-					<div>{item.staion_name}</div>
+				<div class="w-full border-b border-gray-300">
+					<div class="text-sm font-semibold">{item.duid}</div>
+					<div class="text-xxs text-gray-400">{item.staion_name}</div>
 				</div>
 				{/each}
 			</div>
@@ -444,18 +458,30 @@
 			</div>
 			{/if}
 		</div>
-		<div class="w-full">
-			<button on:click={plotUnits} class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-				Plot
+		<div class="w-full py-2 px-3">
+			<button
+				on:click={plotUnits}
+				class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
+				disabled={loading}>
+				{loading ? "Loading" : "Plot"}
 			</button>
 		</div>
 	</div>
 	<!-- Main Plot -->
-	<div class="w-full md:w-7/12 border border-gray-400 rounded">
+	{#if data.length == 0}
+	<div class="flex flex-wrap border md:w-7/12 place-content-center text-gray-600 justify-center rounded">
+		<div>
+			{loading ? "Loading" : "No Plot Yet  :("}
+		</div>
+	</div>
+	{:else}
+	<div class="w-full md:w-7/12 rounded">
 		<div class="w-full h-full py-5 pb-12 pl-10">
 			<Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
 				<Pancake.Grid horizontal count={10} let:value>
-					<div class="grid-line horizontal"><span>{value}</span></div>
+					<div class="grid-line horizontal">
+						<span class="">{value}</span>
+					</div>
 				</Pancake.Grid>
 
 				<Pancake.Grid vertical count={5} let:value>
@@ -493,13 +519,14 @@
 					<Pancake.Point x={closest.x} y={closest.y}>
 						<span class="annotation-point"></span>
 						<div class="annotation" style="transform: translate(-{100 * ((closest.x - xMin)/(xMax-xMin))}%,0)">
-							<strong>{closest.unit.unit}</strong>
-							<span>{new Date(closest.x).toLocaleString("en-gb", {
+							<div class="font-bold">{closest.unit.unit}</div>
+							<div class="text-xs font-light text-gray-400 pb-0.5">{getUnitStationName(closest.unit.unit)}</div>
+							<span class="font-light">{new Date(closest.x).toLocaleString("en-gb", {
 								day: "numeric",
 								month: "2-digit",
 								year: "2-digit",
 							})}</span>
-							<span>{new Date(closest.x).toLocaleString("en-gb", {
+							<span class="font-light">{new Date(closest.x).toLocaleString("en-gb", {
 								hour12: false,
 								hour: "2-digit",
 								minute: "2-digit",
@@ -514,6 +541,7 @@
 			</Pancake.Chart>
 		</div>
 	</div>
+	{/if}
 </div>
 
 <style>
@@ -557,7 +585,7 @@
 		position: absolute;
 		width: 4em;
 		left: -2em;
-		bottom: -50px;
+		bottom: -60px;
 		font-family: sans-serif;
 		font-size: 14px;
 		color: #999;
@@ -573,7 +601,7 @@
 	}
 
 	.highlight {
-		stroke: #ff3e00;
+		stroke: #3b82f6;
 		fill: none;
 		stroke-width: 2;
 	}
@@ -592,7 +620,7 @@
 		position: absolute;
 		width: 10px;
 		height: 10px;
-		background-color: #ff3e00;
+		background-color: #3b82f6;
 		border-radius: 50%;
 		transform: translate(-50%,-50%);
 	}
