@@ -1,4 +1,5 @@
 <script>
+
 	import * as Pancake from '@sveltejs/pancake';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
@@ -291,6 +292,12 @@
 	}, []);
 
 </script>
+
+<svelte:head>
+	<title>
+		AEMO Dashboard
+	</title>
+</svelte:head>
 
 <svelte:window on:keydown={handleKeydown}/>
 <!-- Checkboxes for -> Rooftop, Demand -->
