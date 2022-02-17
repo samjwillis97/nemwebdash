@@ -4,7 +4,7 @@
 	import { DateInput } from 'date-picker-svelte';
 	import { onMount } from 'svelte';
 
-	let baseURL = 'http://localhost:3005'
+	let baseURL = 'http://nemweb-api:3005'
 
 	let units = [];
 	$: filteredUnits = [];
