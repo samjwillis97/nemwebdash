@@ -64,6 +64,7 @@
 	// let demand = false
 
 	let regionList = null
+	let regionFilteredList = null
 	let regionSelection = null
 	let technologyList = null
 	let technologySelection = null
@@ -80,15 +81,9 @@
 		}).then(function (json) {
 			units = json
 			filteredUnits = json
-			regionList = [...new Set(json.map(v => {
-				return v.region_id
-			}))]
-			technologyList= [...new Set(json.map(v => {
-				return v.technology_type
-			}))]
-			sourceList = [...new Set(json.map(v => {
-				return v.fuel_source
-			}))]
+			updateRegionSelections(units)
+			updateTechSelections(units)
+			updateSourceSelections(units)
 		})
 	})
 
@@ -137,13 +132,12 @@
 		filterUnits()
 	}
 
-	function filterUnits() {
+	function regionSelectFilter(units) {
 		let filtered = units
-
 		if (regionSelection != null) {
-			filtered = filtered.filter((v) => {
+			filtered = units.filter((v) => {
 				let filter = false
-				for (let i=0; i <regionSelection.length; i++) {
+				for (let i=0; i < regionSelection.length; i++) {
 					if (regionSelection[i] == v.region_id) {
 						filter = true
 						break
@@ -152,11 +146,15 @@
 				return filter
 			})
 		}
+		return filtered
+	}
 
-		if (technologySelection!= null) {
-			filtered = filtered.filter((v) => {
+	function techSelectFilter(units) {
+		let filtered = units
+		if (technologySelection != null) {
+			filtered = units.filter((v) => {
 				let filter = false
-				for (let i=0; i <technologySelection.length; i++) {
+				for (let i=0; i < technologySelection.length; i++) {
 					if (technologySelection[i] == v.technology_type) {
 						filter = true
 						break
@@ -165,11 +163,15 @@
 				return filter
 			})
 		}
+		return filtered
+	}
 
-		if (sourceSelection!= null) {
-			filtered = filtered.filter((v) => {
+	function fuelSelectFilter(units) {
+		let filtered = units
+		if (sourceSelection != null) {
+			filtered = units.filter((v) => {
 				let filter = false
-				for (let i=0; i <sourceSelection.length; i++) {
+				for (let i=0; i < sourceSelection.length; i++) {
 					if (sourceSelection[i] == v.fuel_source) {
 						filter = true
 						break
@@ -178,17 +180,90 @@
 				return filter
 			})
 		}
+		return filtered
+	}
 
+	function searchFilter(units) {
+		let filtered = units
 		if (search != null && search != "") {
-			filtered = filtered.filter((v) => {
+			filtered = units.filter((v) => {
 				return (
 					v.duid.toUpperCase().match(search.toUpperCase()) != null
 					|| v.staion_name.toUpperCase().match(search.toUpperCase()) != null
 					)
 			})
 		}
+		return filtered
+	}
 
-		filteredUnits = filtered
+	function updateRegionSelections(units) {
+			regionList = [...new Set(units.map(v => {
+				return v.region_id
+			}))]
+	}
+
+	function updateTechSelections(units) {
+			technologyList= [...new Set(units.map(v => {
+				return v.technology_type
+			}))]
+	}
+
+	function updateSourceSelections(units) {
+			sourceList = [...new Set(units.map(v => {
+				return v.fuel_source
+			}))]
+	}
+
+	function intersection (arr1, arr2) {
+		const res = []
+		for (let i=0; i < arr1.length; i++) {
+			if (!arr2.includes(arr1[i])) {
+				continue;
+			}
+			res.push(arr1[i])
+		}
+		return res
+	}
+
+	function intersectMultiple (...arrs) {
+		let res = arrs[0].slice();
+		for (let i=1; i < arrs.length; i++) {
+			res = intersection(res, arrs[i])
+		}
+		return res
+	}
+
+
+	function filterUnits() {
+		let filtered = units
+
+		let regionFiltered = regionSelectFilter(filtered)
+		let techFiltered = techSelectFilter(filtered)
+		let sourceFiltered = fuelSelectFilter(filtered)
+		let searchFiltered = searchFilter(filtered)
+
+		// Update Region Selections
+		if (filtered.length == techFiltered.length == sourceFiltered.length == searchFiltered.length) {
+			updateRegionSelections(units)
+		} else {
+			updateRegionSelections(intersectMultiple(searchFiltered, techFiltered, sourceFiltered))
+		}
+
+		// Update Tech Selections
+		if (filtered.length == regionFiltered.length == sourceFiltered.length == searchFiltered.length) {
+			updateTechSelections(units)
+		} else {
+			updateTechSelections(intersectMultiple(searchFiltered, regionFiltered, sourceFiltered))
+		}
+
+		// Update Soruce Selections
+		if (filtered.length == regionFiltered.length == techFiltered.length == searchFiltered.length) {
+			updateSourceSelections(units)
+		} else {
+			updateSourceSelections(intersectMultiple(searchFiltered, regionFiltered, techFiltered))
+		}
+		
+		filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
 	}
 
 	function plotUnits() {
@@ -283,7 +358,6 @@
 	}
 
 	$: points = data.reduce((points, unit) => {
-		console.log(unit)
 		return points.concat(unit.data.map(d => ({
 			x: d.x,
 			y: d.y,
@@ -314,7 +388,7 @@
 			<!-- Left Side -->
 			<div class="flex w-full md:w-5/12">Aggregation</div>
 			<!-- Right Side -->
-			<div class="flex w-full md:w-7/12 pl-6">Window Period</div>
+			<div class="flex w-full md:w-7/12 pl-6">Windowing Time Period</div>
 		</div>
 		<div class="flex flex-wrap justify-between px-2 pt-0.5 pb-2">
 			<!-- Left Side -->
@@ -385,7 +459,6 @@
 		<div class="w-full px-2 py-0.5">
 			<Select
 				items={regionList}
-				value={regionSelection}
 				placeholder="Region"
 				isClearable={true}
 				isMulti={true}
@@ -398,7 +471,6 @@
 		<div class="w-full px-2 py-0.5">
 			<Select
 				items={technologyList}
-				value={technologySelection}
 				placeholder="Technology"
 				isClearable={true}
 				isMulti={true}
@@ -411,7 +483,6 @@
 		<div class="w-full px-2 py-0.5">
 			<Select
 				items={sourceList}
-				value={sourceSelection}
 				placeholder="Fuel Source"
 				isClearable={true}
 				isMulti={true}
@@ -538,7 +609,7 @@
 								hour: "2-digit",
 								minute: "2-digit",
 								second:"2-digit"
-							})}: {Math.round(closest.y)}</span>
+							})}: {Math.round(closest.y)}MW</span>
 						</div>
 					</Pancake.Point>
 				{/if}
