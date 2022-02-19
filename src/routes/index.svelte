@@ -64,7 +64,6 @@
 	// let demand = false
 
 	let regionList = null
-	let regionFilteredList = null
 	let regionSelection = null
 	let technologyList = null
 	let technologySelection = null
@@ -233,7 +232,6 @@
 		return res
 	}
 
-
 	function filterUnits() {
 		let filtered = units
 
@@ -278,7 +276,6 @@
 		}
 	}
 
-	// let data = testData;
 	let data = [];
 
 	async function getData() {
@@ -556,9 +553,9 @@
 	<div class="w-full md:w-7/12 rounded">
 		<div class="w-full h-full py-5 pb-12 pl-10">
 			<Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
-				<Pancake.Grid horizontal count={10} let:value>
+				<Pancake.Grid horizontal count={10} let:value let:last>
 					<div class="grid-line horizontal">
-						<span class="">{value}</span>
+						<span class="">{value} {last ? "MW" : ""}</span>
 					</div>
 				</Pancake.Grid>
 
