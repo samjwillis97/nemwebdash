@@ -1,15 +1,16 @@
 <script>
-
 	import * as Pancake from '@sveltejs/pancake';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
 	import { onMount } from 'svelte';
 
+	// this is the base url for the api backend
 	let baseURL = 'https://api.aemodash.com'
 
-	let units = [];
-	$: filteredUnits = [];
+	let units = []; 		// all the units retrieved via the API
+	$: filteredUnits = [];	// units that have been filtered by filterUnits()
 
+	// all potential function options for flux query
 	let functionList = [
 		'mean',
 		"median",
@@ -21,12 +22,15 @@
 		"unique",
 		"distinct",
 	];
-	let functionSelection = 'mean'
+	let functionSelection = 'mean'	// selected function by default
 
+	// default window period selection
+	let windowNumber = 20
 	let windowSelection = {
 		label: 'min',
 		value: 'm',
 	}
+	// all available window periods
 	let windowUnit = [
 		{
 			label: 'sec',
@@ -53,18 +57,58 @@
 			value: 'mo',
 		},
 	]
-	let windowNumber = 20
 
-	let endDate = new Date();
-	let startDate= new Date();
-	let tempDate = endDate.getDate() - 7;
-	startDate.setDate(tempDate)
+	let endDate = new Date();		// final date to query for
+	let startDate= new Date();		// first date to query for
+	let tempDate = endDate.getDate() - 7;	// used as a temporary store to set startdate as a week before now()
+	startDate.setDate(tempDate)		// sets startDate by default to a week prior to now
 
 	// let rooftop = true
 	// let demand = false
 
-	let regionList = null
-	let regionSelection = null
+	/* REGIONS */
+	let regionList = null		// It is assigned the value of all currently plotted units regions
+	let regionSelection = null	// it is assigned the current selection of regions 
+
+	// bound to the region filter selection
+	// if there is a selection made, sets the region selection to the selected values
+	// if no selection/cleared regionSelection is then set back to default (null)
+	function onRegionSelect(event) {
+		if (event.detail != null) {
+			regionSelection = (event.detail.map((v) => {
+				return v.value
+			}))
+		} else {
+			regionSelection = null
+		}
+		filterUnits()
+	}
+
+	// filters the given units using the current value of the selected regions (regionSelection)
+	function regionSelectFilter(units) {
+		let filtered = units
+		if (regionSelection != null) {
+			filtered = units.filter((v) => {
+				let filter = false
+				for (let i=0; i < regionSelection.length; i++) {
+					if (regionSelection[i] == v.region_id) {
+						filter = true
+						break
+					}
+				}
+				return filter
+			})
+		}
+		return filtered
+	}
+
+	// updates the regionList to all the unique values in given units
+	function updateRegionSelections(units) {
+		regionList = [...new Set(units.map(v => {
+			return v.region_id
+		}))]
+	}
+
 	let technologyList = null
 	let technologySelection = null
 	let sourceList = null
@@ -98,17 +142,6 @@
 		}
 	}
 
-	function onRegionSelect(event) {
-		if (event.detail != null) {
-			regionSelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			regionSelection = null
-		}
-		filterUnits()
-	}
-
 	function onTechnologySelect(event) {
 		if (event.detail != null) {
 			technologySelection = (event.detail.map((v) => {
@@ -129,23 +162,6 @@
 			sourceSelection = null
 		}
 		filterUnits()
-	}
-
-	function regionSelectFilter(units) {
-		let filtered = units
-		if (regionSelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < regionSelection.length; i++) {
-					if (regionSelection[i] == v.region_id) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
 	}
 
 	function techSelectFilter(units) {
@@ -193,12 +209,6 @@
 			})
 		}
 		return filtered
-	}
-
-	function updateRegionSelections(units) {
-			regionList = [...new Set(units.map(v => {
-				return v.region_id
-			}))]
 	}
 
 	function updateTechSelections(units) {
@@ -371,10 +381,12 @@
 </svelte:head>
 
 <svelte:window on:keydown={handleKeydown}/>
-<!-- Checkboxes for -> Rooftop, Demand -->
-<!-- Range will be a numeric field with dropdown for h/m/s/d/w/mo -->
-<!-- Dropdowns for Aggregate and Function  -->
-<!-- -->
+
+<!-- Aggregation + Range on Top of Plot-->
+<!-- Remove Aggregatio - Leave Windowing Period -->
+<!-- Filters + Search on Left -->
+<!-- Extra axis on the right hand side for totals that can be toggled off-->
+<!-- Totals include, All Generation/Selected/Rooftop/Demand -->
 
 <!-- Responsive Grid -->
 <div class="flex flex-wrap content-center justify-center h-screen">
@@ -515,6 +527,8 @@
 				on:input={filterUnits}
 			/>
 		</div>
+		<!-- Select All -->
+		<!-- Clear Selection -->
 		<div class="flex flex-wrap p-2 h-48 border rounded border-gray-200 place-content-center justify-center ">
 		<!-- Search Results -->
 		<!-- Show the Unit ID and the Station Name-->
@@ -546,7 +560,7 @@
 	{#if data.length == 0}
 	<div class="flex flex-wrap border md:w-7/12 place-content-center text-gray-600 justify-center rounded">
 		<div>
-			{loading ? "Loading" : "No Plot Yet  :("}
+			{loading ? "Loading" : "No Data to Plot :("}
 		</div>
 	</div>
 	{:else}
