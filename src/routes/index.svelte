@@ -7,240 +7,9 @@
 	// this is the base url for the api backend
 	let baseURL = 'https://api.aemodash.com'
 
+	/* UNITS DATA */
 	let units = []; 		// all the units retrieved via the API
 	$: filteredUnits = [];	// units that have been filtered by filterUnits()
-
-	// all potential function options for flux query
-	let functionList = [
-		'mean',
-		"median",
-		"min",
-		"max",
-		"first",
-		'last',
-		"sum",
-		"unique",
-		"distinct",
-	];
-	let functionSelection = 'mean'	// selected function by default
-
-	// default window period selection
-	let windowNumber = 20
-	let windowSelection = {
-		label: 'min',
-		value: 'm',
-	}
-	// all available window periods
-	let windowUnit = [
-		{
-			label: 'sec',
-			value: 's',
-		},
-		{
-			label: 'min',
-			value: 'm',
-		},
-		{
-			label: 'hr',
-			value: 'h',
-		},
-		{
-			label: 'day',
-			value: 'd',
-		},
-		{
-			label: 'week',
-			value: 'w',
-		},
-		{
-			label: 'month',
-			value: 'mo',
-		},
-	]
-
-	let endDate = new Date();		// final date to query for
-	let startDate= new Date();		// first date to query for
-	let tempDate = endDate.getDate() - 7;	// used as a temporary store to set startdate as a week before now()
-	startDate.setDate(tempDate)		// sets startDate by default to a week prior to now
-
-	// let rooftop = true
-	// let demand = false
-
-	/* REGIONS */
-	let regionList = null		// It is assigned the value of all currently plotted units regions
-	let regionSelection = null	// it is assigned the current selection of regions 
-
-	// bound to the region filter selection
-	// if there is a selection made, sets the region selection to the selected values
-	// if no selection/cleared regionSelection is then set back to default (null)
-	function onRegionSelect(event) {
-		if (event.detail != null) {
-			regionSelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			regionSelection = null
-		}
-		filterUnits()
-	}
-
-	// filters the given units using the current value of the selected regions (regionSelection)
-	function regionSelectFilter(units) {
-		let filtered = units
-		if (regionSelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < regionSelection.length; i++) {
-					if (regionSelection[i] == v.region_id) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	// updates the regionList to all the unique values in given units
-	function updateRegionSelections(units) {
-		regionList = [...new Set(units.map(v => {
-			return v.region_id
-		}))]
-	}
-
-	let technologyList = null
-	let technologySelection = null
-	let sourceList = null
-	let sourceSelection = null
-
-	let search = null
-
-	onMount(async() => {
-		await fetch(baseURL + '/units',{
-			mode: 'cors',
-		}).then(function (a) {
-			return a.json();
-		}).then(function (json) {
-			units = json
-			filteredUnits = json
-			updateRegionSelections(units)
-			updateTechSelections(units)
-			updateSourceSelections(units)
-		})
-	})
-
-	function onAggFnChange(event) {
-		if (event.detail != null) {
-			functionSelection = event.detail.value
-		}
-	}
-
-	function onAggWindowPeriodChange(event) {
-		if (event.detail != null) {
-			windowSelection = event.detail
-		}
-	}
-
-	function onTechnologySelect(event) {
-		if (event.detail != null) {
-			technologySelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			technologySelection = null
-		}
-		filterUnits()
-	}
-
-	function onFuelSourceSelect(event) {
-		if (event.detail != null) {
-			sourceSelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			sourceSelection = null
-		}
-		filterUnits()
-	}
-
-	function techSelectFilter(units) {
-		let filtered = units
-		if (technologySelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < technologySelection.length; i++) {
-					if (technologySelection[i] == v.technology_type) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	function fuelSelectFilter(units) {
-		let filtered = units
-		if (sourceSelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < sourceSelection.length; i++) {
-					if (sourceSelection[i] == v.fuel_source) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	function searchFilter(units) {
-		let filtered = units
-		if (search != null && search != "") {
-			filtered = units.filter((v) => {
-				return (
-					v.duid.toUpperCase().match(search.toUpperCase()) != null
-					|| v.staion_name.toUpperCase().match(search.toUpperCase()) != null
-					)
-			})
-		}
-		return filtered
-	}
-
-	function updateTechSelections(units) {
-			technologyList= [...new Set(units.map(v => {
-				return v.technology_type
-			}))]
-	}
-
-	function updateSourceSelections(units) {
-			sourceList = [...new Set(units.map(v => {
-				return v.fuel_source
-			}))]
-	}
-
-	function intersection (arr1, arr2) {
-		const res = []
-		for (let i=0; i < arr1.length; i++) {
-			if (!arr2.includes(arr1[i])) {
-				continue;
-			}
-			res.push(arr1[i])
-		}
-		return res
-	}
-
-	function intersectMultiple (...arrs) {
-		let res = arrs[0].slice();
-		for (let i=1; i < arrs.length; i++) {
-			res = intersection(res, arrs[i])
-		}
-		return res
-	}
 
 	function filterUnits() {
 		let filtered = units
@@ -280,12 +49,255 @@
 		}
 	}
 
+	function getUnitStationName(unit) {
+		return (units.filter((v) => {
+			return v.duid == unit
+		})[0].staion_name)
+	}
+
+
+	// let rooftop = true
+	// let demand = false
+
+
+	/* TIME RANGE */
+	let endDate = new Date();		// final date to query for
+	let startDate= new Date();		// first date to query for
+	let tempDate = endDate.getDate() - 7;	// used as a temporary store to set startdate as a week before now()
+	startDate.setDate(tempDate)		// sets startDate by default to a week prior to now
+
+
+	/* AGGREGATION FUNCTION */
+	// all potential function options for flux query
+	let functionList = [
+		'mean',
+		"median",
+		"min",
+		"max",
+		"first",
+		'last',
+		"sum",
+		"unique",
+		"distinct",
+	];
+	let functionSelection = 'mean'	// selected function by default
+
+	function onAggFnChange(event) {
+		if (event.detail != null) {
+			functionSelection = event.detail.value
+		}
+	}
+
+
+	/* WINDOW PERIOD */
+	// default window period selection
+	let windowNumber = 20
+	let windowSelection = {
+		label: 'min',
+		value: 'm',
+	}
+	// all available window periods
+	let windowUnit = [
+		{
+			label: 'sec',
+			value: 's',
+		},
+		{
+			label: 'min',
+			value: 'm',
+		},
+		{
+			label: 'hr',
+			value: 'h',
+		},
+		{
+			label: 'day',
+			value: 'd',
+		},
+		{
+			label: 'week',
+			value: 'w',
+		},
+		{
+			label: 'month',
+			value: 'mo',
+		},
+	]
+
+	function onAggWindowPeriodChange(event) {
+		if (event.detail != null) {
+			windowSelection = event.detail
+		}
+	}
+
+
+	/* REGION FILTER */
+	let regionList = null		// It is assigned the value of all currently plotted units regions
+	let regionSelection = null	// it is assigned the current selection of regions 
+
+	// bound to the region filter selection
+	// if there is a selection made, sets the region selection to the selected values
+	// if no selection/cleared regionSelection is then set back to default (null)
+	function onRegionSelect(event) {
+		if (event.detail != null) {
+			regionSelection = (event.detail.map((v) => {
+				return v.value
+			}))
+		} else {
+			regionSelection = null
+		}
+		filterUnits()
+	}
+
+	// filters the given units using the current value of the selected regions (regionSelection)
+	function regionSelectFilter(units) {
+		let filtered = units
+		if (regionSelection != null) {
+			filtered = units.filter((v) => {
+				let filter = false
+				for (let i=0; i < regionSelection.length; i++) {
+					if (regionSelection[i] == v.region_id) {
+						filter = true
+						break
+					}
+				}
+				return filter
+			})
+		}
+		return filtered
+	}
+
+	// updates the regionList to all the unique regions in the given units
+	function updateRegionSelections(units) {
+		regionList = [...new Set(units.map(v => {
+			return v.region_id
+		}))]
+	}
+
+
+	/* TECHNOLOGY FILTER */
+	let technologyList = null
+	let technologySelection = null
+
+	function onTechnologySelect(event) {
+		if (event.detail != null) {
+			technologySelection = (event.detail.map((v) => {
+				return v.value
+			}))
+		} else {
+			technologySelection = null
+		}
+		filterUnits()
+	}
+
+	function techSelectFilter(units) {
+		let filtered = units
+		if (technologySelection != null) {
+			filtered = units.filter((v) => {
+				let filter = false
+				for (let i=0; i < technologySelection.length; i++) {
+					if (technologySelection[i] == v.technology_type) {
+						filter = true
+						break
+					}
+				}
+				return filter
+			})
+		}
+		return filtered
+	}
+
+	function updateTechSelections(units) {
+			technologyList= [...new Set(units.map(v => {
+				return v.technology_type
+			}))]
+	}
+
+
+	/* FUEL SOURCE FILTER */
+	let sourceList = null
+	let sourceSelection = null
+
+	function onFuelSourceSelect(event) {
+		if (event.detail != null) {
+			sourceSelection = (event.detail.map((v) => {
+				return v.value
+			}))
+		} else {
+			sourceSelection = null
+		}
+		filterUnits()
+	}
+
+	function fuelSelectFilter(units) {
+		let filtered = units
+		if (sourceSelection != null) {
+			filtered = units.filter((v) => {
+				let filter = false
+				for (let i=0; i < sourceSelection.length; i++) {
+					if (sourceSelection[i] == v.fuel_source) {
+						filter = true
+						break
+					}
+				}
+				return filter
+			})
+		}
+		return filtered
+	}
+
+	function updateSourceSelections(units) {
+			sourceList = [...new Set(units.map(v => {
+				return v.fuel_source
+			}))]
+	}
+
+
+	/* SEARCH FILTER */
+	let search = null
+
+	function searchFilter(units) {
+		let filtered = units
+		if (search != null && search != "") {
+			filtered = units.filter((v) => {
+				return (
+					v.duid.toUpperCase().match(search.toUpperCase()) != null
+					|| v.staion_name.toUpperCase().match(search.toUpperCase()) != null
+					)
+			})
+		}
+		return filtered
+	}
+
+
+	function intersection (arr1, arr2) {
+		const res = []
+		for (let i=0; i < arr1.length; i++) {
+			if (!arr2.includes(arr1[i])) {
+				continue;
+			}
+			res.push(arr1[i])
+		}
+		return res
+	}
+
+	function intersectMultiple (...arrs) {
+		let res = arrs[0].slice();
+		for (let i=1; i < arrs.length; i++) {
+			res = intersection(res, arrs[i])
+		}
+		return res
+	}
+
 	function handleKeydown(event) {
 		if (event.key == "Enter") {
 			plotUnits()
 		}
 	}
 
+
+
+	/* PLOTTING DATA */
 	let data = [];
 
 	async function getData() {
@@ -333,16 +345,9 @@
 		})
 	}
 
-	function getUnitStationName(unit) {
-		return (units.filter((v) => {
-			return v.duid == unit
-		})[0].staion_name)
-	}
 
-	// PANCAKE PLOT
-
+	/* PLOTTING */
 	let closest;
-	$: loading = false
 
 	$: xMin = +Infinity;
 	$: xMax = -Infinity;
@@ -371,6 +376,23 @@
 			unit
 		})));
 	}, []);
+
+	/* MAIN */
+	$: loading = false
+
+	onMount(async() => {
+		await fetch(baseURL + '/units',{
+			mode: 'cors',
+		}).then(function (a) {
+			return a.json();
+		}).then(function (json) {
+			units = json
+			filteredUnits = json
+			updateRegionSelections(units)
+			updateTechSelections(units)
+			updateSourceSelections(units)
+		})
+	})
 
 </script>
 
