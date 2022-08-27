@@ -28,6 +28,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@sveltejs/pancake": "^0.0.18"
+    "@sveltejs/pancake": "^0.0.18",
+    "svelte-tabs": "^1.1.0"
   }
 }

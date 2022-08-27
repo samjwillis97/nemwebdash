@@ -1,11 +1,14 @@
 <script>
+    import Checkbox from '../components/checkbox.svelte';
 	import * as Pancake from '@sveltejs/pancake';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
+	import { Tab, Tabs, TabPanel, TabList } from 'svelte-tabs';
 	import { onMount } from 'svelte';
 
 	// this is the base url for the api backend
-	let baseURL = 'https://api.aemodash.com'
+	/* let baseURL = 'https://api.aemodash.com' */
+    let baseURL = 'http://localhost:3005'
 
 	/* UNITS DATA */
 	let units = []; 		// all the units retrieved via the API
@@ -20,39 +23,49 @@
 		let searchFiltered = searchFilter(filtered)
 
 		// Update Region Selections
-		if (filtered.length == techFiltered.length == sourceFiltered.length == searchFiltered.length) {
+		if (filtered.length === techFiltered.length === sourceFiltered.length === searchFiltered.length) {
 			updateRegionSelections(units)
 		} else {
 			updateRegionSelections(intersectMultiple(searchFiltered, techFiltered, sourceFiltered))
 		}
 
 		// Update Tech Selections
-		if (filtered.length == regionFiltered.length == sourceFiltered.length == searchFiltered.length) {
+		if (filtered.length === regionFiltered.length === sourceFiltered.length === searchFiltered.length) {
 			updateTechSelections(units)
 		} else {
 			updateTechSelections(intersectMultiple(searchFiltered, regionFiltered, sourceFiltered))
 		}
 
 		// Update Soruce Selections
-		if (filtered.length == regionFiltered.length == techFiltered.length == searchFiltered.length) {
+		if (filtered.length === regionFiltered.length === techFiltered.length === searchFiltered.length) {
 			updateSourceSelections(units)
 		} else {
 			updateSourceSelections(intersectMultiple(searchFiltered, regionFiltered, techFiltered))
 		}
-		
-		filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
+
+		const filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
 	}
 
 	function plotUnits() {
 		if (!loading) {
-			getData()
+			getUnitData()
+		}
+	}
+
+	function plotGrouped() {
+		if (!loading) {
+			getGroupedData()
 		}
 	}
 
 	function getUnitStationName(unit) {
-		return (units.filter((v) => {
+        let name = (units.filter((v) => {
 			return v.duid == unit
-		})[0].staion_name)
+        }))
+        if (name & name.length > 0) {
+            return name[0].station_name
+        }
+        return ""
 	}
 
 
@@ -300,18 +313,94 @@
 	/* PLOTTING DATA */
 	let data = [];
 
-	async function getData() {
-		let toPlot = filteredUnits.map((v) => {
-			return v.duid
-		})
+    let regionGroup = true
+    let fuelGroup = false
+    let techGroup = false
 
+	async function getGroupedData() {
 		let query = (
-			'?duid=' + toPlot.join('&duid=')
-			+ '&range.start=' + startDate.toISOString()
+			'?range.start=' + startDate.toISOString()
 			+ '&range.end=' + endDate.toISOString()
 			+ '&aggregate.every=' + windowNumber + windowSelection.value
 			+ '&aggregate.fn=' + functionSelection
 		)
+
+        // Base just off the filters
+        if (regionSelection && regionSelection.length > 0) {
+            regionSelection.forEach((region) => {
+                query += '&region_id.eq=' + region
+            })
+        }
+        if (sourceSelection && sourceSelection.length > 0) {
+            sourceSelection.forEach((fuel) => {
+                query += '&fuel_source.eq=' + fuel
+            })
+        }
+        if (technologySelection && technologySelection.length > 0) {
+            technologySelection.forEach((tech) => {
+                query += '&technology_type.eq=' + tech
+            })
+        }
+        if (regionGroup) {
+            query += '&group.eq=region'
+        }
+        if (techGroup) {
+            query += '&group.eq=fuel'
+        }
+        if (fuelGroup) {
+            query += '&group.eq=technology'
+        }
+
+
+		loading = true
+
+		await fetch(baseURL + '/data/generation/grouped' + query, {
+			mode: 'cors',
+		}).then(function(a) {
+			return a.json();
+		}).then(function(a) {
+			data = a
+			preProcessData()
+			calcMinMax()
+		}).catch(() => {
+            loading = false
+        })
+
+		loading = false
+	}
+
+	async function getUnitData() {
+		let query = (
+			'?range.start=' + startDate.toISOString()
+			+ '&range.end=' + endDate.toISOString()
+			+ '&aggregate.every=' + windowNumber + windowSelection.value
+			+ '&aggregate.fn=' + functionSelection
+		)
+
+        if (search && search !== "") {
+            // Generate Units
+            let toPlot = filteredUnits.map((v) => {
+                return v.duid
+            })
+            query += '&duid=' + toPlot.join('&duid=')
+        } else {
+            // Base just off the filters
+            if (regionSelection && regionSelection.length > 0) {
+                regionSelection.forEach((region) => {
+                    query += '&region_id.eq=' + region
+                })
+            }
+            if (sourceSelection && sourceSelection.length > 0) {
+                sourceSelection.forEach((fuel) => {
+                    query += '&fuel_source.eq=' + fuel
+                })
+            }
+            if (technologySelection && technologySelection.length > 0) {
+                technologySelection.forEach((tech) => {
+                    query += '&technology_type.eq=' + tech
+                })
+            }
+        }
 
 		loading = true
 
@@ -323,13 +412,14 @@
 			data = a
 			preProcessData()
 			calcMinMax()
-		})
+		}).catch(() => {
+            loading = false
+        })
 
 		loading = false
 	}
 
 	function preProcessData() {
-		console.log("Start Pre process")
 		data = data.map(unit => {
 			unit.data = unit.data.map(d => {
 				if (typeof d.time == "string") {
@@ -484,99 +574,180 @@
 				<input type="checkbox" class="mx-1" bind:value={demand}/> Demand
 			</div>
 		</div> -->
-		<!-- Filters -->
-		<div class="w-full pb-1 pt-2">Filters</div>
-		<!-- Region -->
-		<div class="w-full px-2 py-0.5">
-			<Select
-				items={regionList}
-				placeholder="Region"
-				isClearable={true}
-				isMulti={true}
-				isSearchable={true}
-				showIndicator={true}
-				on:select={onRegionSelect}
-			/>
-		</div>
-		<!-- Technology -->
-		<div class="w-full px-2 py-0.5">
-			<Select
-				items={technologyList}
-				placeholder="Technology"
-				isClearable={true}
-				isMulti={true}
-				isSearchable={true}
-				showIndicator={true}
-				on:select={onTechnologySelect}
-			/>
-		</div>
-		<!-- Fuel Source -->
-		<div class="w-full px-2 py-0.5">
-			<Select
-				items={sourceList}
-				placeholder="Fuel Source"
-				isClearable={true}
-				isMulti={true}
-				isSearchable={true}
-				showIndicator={true}
-				on:select={onFuelSourceSelect}
-			/>
-		</div>
-		<!-- Search -->
-		<div class="w-full p-2">
-			<input
-				type="text"
-				class="
-					form-control
-					block
-					w-full
-					px-3
-					py-1.5
-					my-2
-					text-base
-					font-normal
-					text-gray-700
-					bg-white bg-clip-padding
-					border border-solid border-gray-300
-					rounded
-					transition
-					ease-in-out
-					m-0
-					focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none
-				"
-				placeholder="Search..."
-				bind:value={search}
-				on:input={filterUnits}
-			/>
-		</div>
-		<!-- Select All -->
-		<!-- Clear Selection -->
-		<div class="flex flex-wrap p-2 h-48 border rounded border-gray-200 place-content-center justify-center ">
-		<!-- Search Results -->
-		<!-- Show the Unit ID and the Station Name-->
-			{#if filteredUnits.length > 0}
-			<div class="w-full overflow-auto h-48">
-				{#each filteredUnits as item}
-				<div class="w-full border-b border-gray-300">
-					<div class="text-sm font-semibold">{item.duid}</div>
-					<div class="text-xxs text-gray-400">{item.staion_name}</div>
-				</div>
-				{/each}
-			</div>
-			{:else}
-			<div>
-				No Content Found :(
-			</div>
-			{/if}
-		</div>
-		<div class="w-full py-2 px-3">
-			<button
-				on:click={plotUnits}
-				class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
-				disabled={loading}>
-				{loading ? "Loading" : "Plot"}
-			</button>
-		</div>
+        <div>
+            <div class="pt-2 border-b border-neutral-300 flex flex-wrap"></div>
+            <Tabs>
+                <TabList>
+                    <Tab>Units</Tab>
+                    <Tab>Grouped</Tab>
+                </TabList>
+                <TabPanel>
+                  <div style="display:block; width:100%; height:450px;">
+                    <!-- Filters -->
+                    <div class="w-full pb-1 pt-2">Filters</div>
+                    <!-- Region -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={regionList}
+                            placeholder="Region"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onRegionSelect}
+                        />
+                    </div>
+                    <!-- Technology -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={technologyList}
+                            placeholder="Technology"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onTechnologySelect}
+                        />
+                    </div>
+                    <!-- Fuel Source -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={sourceList}
+                            placeholder="Fuel Source"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onFuelSourceSelect}
+                        />
+                    </div>
+                    <!-- Search -->
+                    <div class="w-full p-2">
+                        <input
+                            type="text"
+                            class="
+                                form-control
+                                block
+                                w-full
+                                px-3
+                                py-1.5
+                                my-2
+                                text-base
+                                font-normal
+                                text-gray-700
+                                bg-white bg-clip-padding
+                                border border-solid border-gray-300
+                                rounded
+                                transition
+                                ease-in-out
+                                m-0
+                                focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none
+                            "
+                            placeholder="Search..."
+                            bind:value={search}
+                            on:input={filterUnits}
+                        />
+                    </div>
+                    <!-- Select All -->
+                    <!-- Clear Selection -->
+                    <div class="flex flex-wrap p-2 h-36 border rounded border-gray-200 place-content-center justify-center ">
+                    <!-- Search Results -->
+                    <!-- Show the Unit ID and the Station Name-->
+                        {#if filteredUnits.length > 0}
+                        <div class="w-full overflow-auto h-36">
+                            {#each filteredUnits as item}
+                            <div class="w-full border-b border-gray-300">
+                                <div class="text-sm font-semibold">{item.duid}</div>
+                                <div class="text-xxs text-gray-400">{item.staion_name}</div>
+                            </div>
+                            {/each}
+                        </div>
+                        {:else}
+                        <div>
+                            No Content Found :(
+                        </div>
+                        {/if}
+                    </div>
+                    <div class="w-full pt-2 px-3">
+                        <button
+                            on:click={plotUnits}
+                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
+                            disabled={loading}>
+                            {loading ? "Loading" : "Plot"}
+                        </button>
+                    </div>
+                  </div>
+                </TabPanel>
+                <TabPanel>
+                  <div style="display:block; width:100%; height:450px;">
+                    <div class="w-full pb-1 pt-2">Group By</div>
+                    <div class="flex flex-wrap px-2 pb-2 pt-0.5">
+                        <div class="w-full flex flex-col items-center mx-auto">
+                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
+                                <input type="checkbox" class="mx-1" bind:checked={regionGroup}> Region
+                            </div>
+                        </div>
+                        <div class="w-full flex flex-col items-center mx-auto">
+                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
+                                <input type="checkbox" class="mx-1" bind:checked={techGroup}> Technology Type
+                            </div>
+                        </div>
+                        <div class="w-full flex flex-col items-center mx-auto">
+                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
+                                <input type="checkbox" class="mx-1" bind:checked={fuelGroup}> Fuel Source
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Filters -->
+                    <div class="w-full pb-1 pt-2">Filters</div>
+                    <!-- Region -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={regionList}
+                            placeholder="Region"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onRegionSelect}
+                        />
+                    </div>
+                    <!-- Technology -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={technologyList}
+                            placeholder="Technology"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onTechnologySelect}
+                        />
+                    </div>
+                    <!-- Fuel Source -->
+                    <div class="w-full px-2 py-0.5">
+                        <Select
+                            items={sourceList}
+                            placeholder="Fuel Source"
+                            isClearable={true}
+                            isMulti={true}
+                            isSearchable={true}
+                            showIndicator={true}
+                            on:select={onFuelSourceSelect}
+                        />
+                    </div>
+                    <div class="w-full pt-2 px-3">
+                        <button
+                            on:click={plotGrouped}
+                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
+                            disabled={loading}>
+                            {loading ? "Loading" : "Plot"}
+                        </button>
+                    </div>
+                  </div>
+                </TabPanel>
+            </Tabs>
+        </div>
 	</div>
 	<!-- Main Plot -->
 	{#if data.length == 0}
@@ -630,7 +801,7 @@
 					<Pancake.Point x={closest.x} y={closest.y}>
 						<span class="annotation-point"></span>
 						<div class="annotation" style="transform: translate(-{100 * ((closest.x - xMin)/(xMax-xMin))}%,0)">
-							<div class="font-bold">{closest.unit.unit}</div>
+							<div class="font-bold">{closest.unit.unit.replace("+", " - ")}</div>
 							<div class="text-xs font-light text-gray-400 pb-0.5">{getUnitStationName(closest.unit.unit)}</div>
 							<span class="font-light">{new Date(closest.x).toLocaleString("en-gb", {
 								day: "numeric",
@@ -656,6 +827,13 @@
 </div>
 
 <style>
+    .fixed-tab-panel {
+        display:block;
+        width:100%;
+        height:70px;
+        background-color:#475;
+        overflow:scroll;
+    }
 	.chart {
 		padding: 3em 0 2em 2em;
 		margin: 0 0 36px 0;
