@@ -7,8 +7,7 @@
 	import { onMount } from 'svelte';
 
 	// this is the base url for the api backend
-	/* let baseURL = 'https://api.aemodash.com' */
-    let baseURL = 'http://localhost:3005'
+	let baseURL = 'https://api.aemodash.com'
 
 	/* UNITS DATA */
 	let units = []; 		// all the units retrieved via the API
