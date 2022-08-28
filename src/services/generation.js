@@ -1,50 +1,22 @@
 import { loading } from '../stores/state.js'
-import {
-    defaultEndDate,
-    defaultStartDate,
-    defaultAggregateFn,
-    defaultWindowNumber,
-    defaultWindowSelection,
-    baseURL,
-} from './config.js';
+import { baseURL } from './config.js';
+import { setupDefaultConfig } from './helpers.js';
 
 export async function getUnitGenerationData(
     config,
     units,
     regions,
     fuels,
-    techs
+    techs,
 ) {
 
-    let endDate = defaultEndDate
-    let startDate = defaultStartDate
-    let windowNumber = defaultWindowNumber
-    let windowSelection = defaultWindowSelection
-    let aggregateFn = defaultAggregateFn
-
-    if (config) {
-        if (config.endDate) {
-            endDate = config.endDate
-        }
-        if (config.startDate) {
-            startDate = config.startDate
-        }
-        if (config.windowNumber) {
-            windowNumber = config.windowNumber
-        }
-        if (config.windowSelection) {
-            windowSelection = config.windowSelection
-        }
-        if (config.aggregateFn) {
-            aggregateFn = config.aggregateFn
-        }
-    }
+    config = setupDefaultConfig(config)
 
     let query = (
-        '?range.start=' + startDate.toISOString()
-        + '&range.end=' + endDate.toISOString()
-        + '&aggregate.every=' + windowNumber + windowSelection
-        + '&aggregate.fn=' + aggregateFn
+        '?range.start=' + config.startDate.toISOString()
+        + '&range.end=' + config.endDate.toISOString()
+        + '&aggregate.every=' + config.windowNumber + config.windowSelection
+        + '&aggregate.fn=' + config.aggregateFn
     )
 
     if (units && units.length > 0 ) {
@@ -76,6 +48,66 @@ export async function getUnitGenerationData(
 
 
     const data = await fetch(baseURL + '/data/generation' + query, {
+        mode: 'cors',
+    }).then(function(a) {
+        return a.json();
+    }).catch((e) => {
+        console.log(e)
+        loading.set(false)
+    })
+
+    loading.set(false)
+
+    return data
+}
+
+export async function getGroupedGenerationData(
+    config,
+    regions,
+    groupByRegion,
+    fuels,
+    groupByFuel,
+    techs,
+    groupByTech,
+) {
+    config = setupDefaultConfig(config)
+
+    let query = (
+        '?range.start=' + config.startDate.toISOString()
+        + '&range.end=' + config.endDate.toISOString()
+        + '&aggregate.every=' + config.windowNumber + config.windowSelection
+        + '&aggregate.fn=' + config.aggregateFn 
+    )
+
+    // Base just off the filters
+    if (regions && regions.length > 0) {
+        regions.forEach((region) => {
+            query += '&region_id.eq=' + region
+        })
+    }
+    if (fuels && fuels.length > 0) {
+        fuels.forEach((fuel) => {
+            query += '&fuel_source.eq=' + fuel
+        })
+    }
+    if (techs && techs.length > 0) {
+        techs.forEach((tech) => {
+            query += '&technology_type.eq=' + tech
+        })
+    }
+    if (groupByRegion) {
+        query += '&group.eq=region'
+    }
+    if (groupByFuel) {
+        query += '&group.eq=fuel'
+    }
+    if (groupByTech) {
+        query += '&group.eq=technology'
+    }
+
+    loading.set(true)
+
+    const data = await fetch(baseURL + '/data/generation/grouped' + query, {
         mode: 'cors',
     }).then(function(a) {
         return a.json();

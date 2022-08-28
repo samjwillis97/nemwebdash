@@ -3,11 +3,13 @@
     import Textfield from '../components/textfield.svelte';
     import Plot from '../components/plot.svelte';
     import List from '../components/list.svelte';
+    import MultiFilter from '../components/multiFilter.svelte';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
 	import { Tab, Tabs, TabPanel, TabList } from 'svelte-tabs';
 	import { onMount } from 'svelte';
-    import { getUnitGenerationData } from '../services/generation.js';
+    import { intersectMultiple } from '../common/array.js';
+    import { getGroupedGenerationData, getUnitGenerationData } from '../services/generation.js';
     import { baseURL } from '../services/config.js';
     import { loading } from '../stores/state.js';
     import { units } from '../stores/unit.js';
@@ -21,6 +23,17 @@
 	/* UNITS DATA */
     let data = null
 	$: filteredUnits = [];	// units that have been filtered by filterUnits()
+
+    function getQueryConfig() {
+        return {
+            "endDate": endDate,
+            "startDate": startDate,
+            "windowNumber": windowNumber,
+            "windowSelection": windowSelection.value,
+            "aggregateFn": functionSelection,
+        }
+
+    }
 
 	function filterUnits() {
 		let filtered = $units
@@ -58,16 +71,8 @@
 
 	async function plotUnits() {
 		if (!isLoading) {
-            const config = {
-                "endDate": endDate,
-                "startDate": startDate,
-                "windowNumber": windowNumber,
-                "windowSelection": windowSelection.value,
-                "aggregateFn": functionSelection,
-            }
-			/* getUnitData() */
             data = await getUnitGenerationData(
-                config,
+                getQueryConfig(),
                 filterUnits,
                 regionSelection,
                 sourceSelection,
@@ -76,15 +81,19 @@
 		}
 	}
 
-	function plotGrouped() {
+	async function plotGrouped() {
 		if (!isLoading) {
-			getGroupedData()
+            data = await getGroupedGenerationData(
+                getQueryConfig(),
+                regionSelection,
+                regionGroup,
+                sourceSelection,
+                fuelGroup,
+                technologySelection,
+                techGroup
+            )
 		}
 	}
-
-
-	// let rooftop = true
-	// let demand = false
 
 
 	/* TIME RANGE */
@@ -162,20 +171,6 @@
 	let regionList = null		// It is assigned the value of all currently plotted units regions
 	let regionSelection = null	// it is assigned the current selection of regions 
 
-	// bound to the region filter selection
-	// if there is a selection made, sets the region selection to the selected values
-	// if no selection/cleared regionSelection is then set back to default (null)
-	function onRegionSelect(event) {
-		if (event.detail != null) {
-			regionSelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			regionSelection = null
-		}
-		filterUnits()
-	}
-
 	// filters the given units using the current value of the selected regions (regionSelection)
 	function regionSelectFilter(units) {
 		let filtered = units
@@ -206,17 +201,6 @@
 	let technologyList = null
 	let technologySelection = null
 
-	function onTechnologySelect(event) {
-		if (event.detail != null) {
-			technologySelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			technologySelection = null
-		}
-		filterUnits()
-	}
-
 	function techSelectFilter(units) {
 		let filtered = units
 		if (technologySelection != null) {
@@ -244,17 +228,6 @@
 	/* FUEL SOURCE FILTER */
 	let sourceList = null
 	let sourceSelection = null
-
-	function onFuelSourceSelect(event) {
-		if (event.detail != null) {
-			sourceSelection = (event.detail.map((v) => {
-				return v.value
-			}))
-		} else {
-			sourceSelection = null
-		}
-		filterUnits()
-	}
 
 	function fuelSelectFilter(units) {
 		let filtered = units
@@ -296,90 +269,16 @@
 		return filtered
 	}
 
-
-	function intersection (arr1, arr2) {
-		const res = []
-		for (let i=0; i < arr1.length; i++) {
-			if (!arr2.includes(arr1[i])) {
-				continue;
-			}
-			res.push(arr1[i])
-		}
-		return res
-	}
-
-	function intersectMultiple (...arrs) {
-		let res = arrs[0].slice();
-		for (let i=1; i < arrs.length; i++) {
-			res = intersection(res, arrs[i])
-		}
-		return res
-	}
-
 	function handleKeydown(event) {
 		if (event.key == "Enter") {
 			plotUnits()
 		}
 	}
 
-
-
 	/* PLOTTING DATA */
     let regionGroup = true
     let fuelGroup = false
     let techGroup = false
-
-	async function getGroupedData() {
-		let query = (
-			'?range.start=' + startDate.toISOString()
-			+ '&range.end=' + endDate.toISOString()
-			+ '&aggregate.every=' + windowNumber + windowSelection.value
-			+ '&aggregate.fn=' + functionSelection
-		)
-
-        // Base just off the filters
-        if (regionSelection && regionSelection.length > 0) {
-            regionSelection.forEach((region) => {
-                query += '&region_id.eq=' + region
-            })
-        }
-        if (sourceSelection && sourceSelection.length > 0) {
-            sourceSelection.forEach((fuel) => {
-                query += '&fuel_source.eq=' + fuel
-            })
-        }
-        if (technologySelection && technologySelection.length > 0) {
-            technologySelection.forEach((tech) => {
-                query += '&technology_type.eq=' + tech
-            })
-        }
-        if (regionGroup) {
-            query += '&group.eq=region'
-        }
-        if (techGroup) {
-            query += '&group.eq=fuel'
-        }
-        if (fuelGroup) {
-            query += '&group.eq=technology'
-        }
-
-
-		loading.set(true)
-
-		await fetch(baseURL + '/data/generation/grouped' + query, {
-			mode: 'cors',
-		}).then(function(a) {
-			return a.json();
-		}).then(function(a) {
-			data = a
-			preProcessData()
-			calcMinMax()
-		}).catch(() => {
-            loading.set(false)
-        })
-
-        loading.set(false)
-	}
 
 	/* MAIN */
 
@@ -406,12 +305,6 @@
 </svelte:head>
 
 <svelte:window on:keydown={handleKeydown}/>
-
-<!-- Aggregation + Range on Top of Plot-->
-<!-- Remove Aggregatio - Leave Windowing Period -->
-<!-- Filters + Search on Left -->
-<!-- Extra axis on the right hand side for totals that can be toggled off-->
-<!-- Totals include, All Generation/Selected/Rooftop/Demand -->
 
 <!-- Responsive Grid -->
 <div class="flex flex-wrap content-center justify-center h-screen">
@@ -477,16 +370,6 @@
 				<DateInput bind:value={endDate}/>
 			</div>
 		</div>
-		<!-- Rooftop + Demand Filter-->
-		<!-- <div class="w-full">Include:</div>
-		<div class="flex flex-wrap">
-			<div class="w-full md:w-1/2">
-				<input type="checkbox" class="mx-1" bind:value={rooftop}/> Rooftop
-			</div>
-			<div class="w-full md:w-1/2">
-				<input type="checkbox" class="mx-1" bind:value={demand}/> Demand
-			</div>
-		</div> -->
         <div>
             <div class="pt-2 border-b border-neutral-300 flex flex-wrap"></div>
             <Tabs>
@@ -499,40 +382,16 @@
                     <!-- Filters -->
                     <div class="w-full pb-1 pt-2">Filters</div>
                     <!-- Region -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={regionList}
-                            placeholder="Region"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onRegionSelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={regionList} placeholder="Region" bind:selected={regionSelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <!-- Technology -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={technologyList}
-                            placeholder="Technology"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onTechnologySelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={technologyList} placeholder="Technology" bind:selected={technologySelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <!-- Fuel Source -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={sourceList}
-                            placeholder="Fuel Source"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onFuelSourceSelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={sourceList} placeholder="Fuel Source" bind:selected={sourceSelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <!-- Search -->
                     <div class="p-2">
@@ -563,40 +422,16 @@
                     <!-- Filters -->
                     <div class="w-full pb-1 pt-2">Filters</div>
                     <!-- Region -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={regionList}
-                            placeholder="Region"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onRegionSelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={regionList} placeholder="Region" bind:selected={regionSelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <!-- Technology -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={technologyList}
-                            placeholder="Technology"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onTechnologySelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={technologyList} placeholder="Technology" bind:selected={technologySelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <!-- Fuel Source -->
-                    <div class="w-full px-2 py-0.5">
-                        <Select
-                            items={sourceList}
-                            placeholder="Fuel Source"
-                            isClearable={true}
-                            isMulti={true}
-                            isSearchable={true}
-                            showIndicator={true}
-                            on:select={onFuelSourceSelect}
-                        />
+                    <div class="px-2 py-0.5">
+                        <MultiFilter items={sourceList} placeholder="Fuel Source" bind:selected={sourceSelection} callback={filterUnits}></MultiFilter>
                     </div>
                     <div class="w-full pt-2 px-3">
                         <button
@@ -618,100 +453,9 @@
 </div>
 
 <style>
-    .fixed-tab-panel {
-        display:block;
-        width:100%;
-        height:70px;
-        background-color:#475;
-        overflow:scroll;
-    }
-	.chart {
-		padding: 3em 0 2em 2em;
-		margin: 0 0 36px 0;
-	}
-
 	input {
 		font-size: inherit;
 		font-family: inherit;
 		padding: 0.5em;
-	}
-
-	.grid-line {
-		position: relative;
-		display: block;
-	}
-
-	.grid-line.horizontal {
-		width: calc(100% + 2em);
-		left: -2em;
-		border-bottom: 1px dashed #ccc;
-	}
-
-	.grid-line.vertical {
-		height: 100%;
-		border-left: 1px dashed #ccc;
-	}
-
-	.grid-line span {
-		position: absolute;
-		left: 0;
-		bottom: 2px;
-		font-family: sans-serif;
-		font-size: 14px;
-		color: #999;
-	}
-
-	.x-label {
-		position: absolute;
-		width: 4em;
-		left: -2em;
-		bottom: -60px;
-		font-family: sans-serif;
-		font-size: 14px;
-		color: #999;
-		text-align: center;
-	}
-
-	path.data {
-		stroke: rgba(0,0,0,0.2);
-		stroke-linejoin: round;
-		stroke-linecap: round;
-		stroke-width: 1px;
-		fill: none;
-	}
-
-	.highlight {
-		stroke: #3b82f6;
-		fill: none;
-		stroke-width: 2;
-	}
-
-	.annotation {
-		position: absolute;
-		white-space: nowrap;
-		bottom: 1em;
-		line-height: 1.2;
-		background-color: rgba(255,255,255,0.9);
-		padding: 0.2em 0.4em;
-		border-radius: 2px;
-	}
-
-	.annotation-point {
-		position: absolute;
-		width: 10px;
-		height: 10px;
-		background-color: #3b82f6;
-		border-radius: 50%;
-		transform: translate(-50%,-50%);
-	}
-
-	.annotation strong {
-		display: block;
-		font-size: 20px;
-	}
-
-	.annotation span {
-		display: block;
-		font-size: 14px;
 	}
 </style>

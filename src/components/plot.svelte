@@ -154,17 +154,6 @@
 
 
 <style>
-	.chart {
-		padding: 3em 0 2em 2em;
-		margin: 0 0 36px 0;
-	}
-
-	/* input { */
-	/* 	font-size: inherit; */
-	/* 	font-family: inherit; */
-	/* 	padding: 0.5em; */
-	/* } */
-
 	.grid-line {
 		position: relative;
 		display: block;
@@ -232,11 +221,6 @@
 		background-color: #3b82f6;
 		border-radius: 50%;
 		transform: translate(-50%,-50%);
-	}
-
-	.annotation strong {
-		display: block;
-		font-size: 20px;
 	}
 
 	.annotation span {
