@@ -1,43 +1,54 @@
 <script>
     import Checkbox from '../components/checkbox.svelte';
-	import * as Pancake from '@sveltejs/pancake';
+    import Textfield from '../components/textfield.svelte';
+    import Plot from '../components/plot.svelte';
+    import List from '../components/list.svelte';
 	import Select from 'svelte-select';
 	import { DateInput } from 'date-picker-svelte';
 	import { Tab, Tabs, TabPanel, TabList } from 'svelte-tabs';
 	import { onMount } from 'svelte';
+    import { getUnitGenerationData } from '../services/generation.js';
+    import { baseURL } from '../services/config.js';
+    import { loading } from '../stores/state.js';
+    import { units } from '../stores/unit.js';
 
-	// this is the base url for the api backend
-	let baseURL = 'https://api.aemodash.com'
+    let isLoading = false;
+    loading.subscribe(value => {
+        isLoading = value;
+    })
+
 
 	/* UNITS DATA */
-	let units = []; 		// all the units retrieved via the API
+    let data = null
 	$: filteredUnits = [];	// units that have been filtered by filterUnits()
 
 	function filterUnits() {
-		let filtered = units
+		let filtered = $units
 
 		let regionFiltered = regionSelectFilter(filtered)
 		let techFiltered = techSelectFilter(filtered)
 		let sourceFiltered = fuelSelectFilter(filtered)
 		let searchFiltered = searchFilter(filtered)
 
+        console.log("filter")
+
 		// Update Region Selections
 		if (filtered.length === techFiltered.length === sourceFiltered.length === searchFiltered.length) {
-			updateRegionSelections(units)
+			updateRegionSelections($units)
 		} else {
 			updateRegionSelections(intersectMultiple(searchFiltered, techFiltered, sourceFiltered))
 		}
 
 		// Update Tech Selections
 		if (filtered.length === regionFiltered.length === sourceFiltered.length === searchFiltered.length) {
-			updateTechSelections(units)
+			updateTechSelections($units)
 		} else {
 			updateTechSelections(intersectMultiple(searchFiltered, regionFiltered, sourceFiltered))
 		}
 
 		// Update Soruce Selections
 		if (filtered.length === regionFiltered.length === techFiltered.length === searchFiltered.length) {
-			updateSourceSelections(units)
+			updateSourceSelections($units)
 		} else {
 			updateSourceSelections(intersectMultiple(searchFiltered, regionFiltered, techFiltered))
 		}
@@ -45,26 +56,30 @@
 		const filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
 	}
 
-	function plotUnits() {
-		if (!loading) {
-			getUnitData()
+	async function plotUnits() {
+		if (!isLoading) {
+            const config = {
+                "endDate": endDate,
+                "startDate": startDate,
+                "windowNumber": windowNumber,
+                "windowSelection": windowSelection.value,
+                "aggregateFn": functionSelection,
+            }
+			/* getUnitData() */
+            data = await getUnitGenerationData(
+                config,
+                filterUnits,
+                regionSelection,
+                sourceSelection,
+                technologySelection,
+            )
 		}
 	}
 
 	function plotGrouped() {
-		if (!loading) {
+		if (!isLoading) {
 			getGroupedData()
 		}
-	}
-
-	function getUnitStationName(unit) {
-        let name = (units.filter((v) => {
-			return v.duid == unit
-        }))
-        if (name & name.length > 0) {
-            return name[0].station_name
-        }
-        return ""
 	}
 
 
@@ -310,8 +325,6 @@
 
 
 	/* PLOTTING DATA */
-	let data = [];
-
     let regionGroup = true
     let fuelGroup = false
     let techGroup = false
@@ -351,7 +364,7 @@
         }
 
 
-		loading = true
+		loading.set(true)
 
 		await fetch(baseURL + '/data/generation/grouped' + query, {
 			mode: 'cors',
@@ -362,112 +375,13 @@
 			preProcessData()
 			calcMinMax()
 		}).catch(() => {
-            loading = false
+            loading.set(false)
         })
 
-		loading = false
+        loading.set(false)
 	}
-
-	async function getUnitData() {
-		let query = (
-			'?range.start=' + startDate.toISOString()
-			+ '&range.end=' + endDate.toISOString()
-			+ '&aggregate.every=' + windowNumber + windowSelection.value
-			+ '&aggregate.fn=' + functionSelection
-		)
-
-        if (search && search !== "") {
-            // Generate Units
-            let toPlot = filteredUnits.map((v) => {
-                return v.duid
-            })
-            query += '&duid=' + toPlot.join('&duid=')
-        } else {
-            // Base just off the filters
-            if (regionSelection && regionSelection.length > 0) {
-                regionSelection.forEach((region) => {
-                    query += '&region_id.eq=' + region
-                })
-            }
-            if (sourceSelection && sourceSelection.length > 0) {
-                sourceSelection.forEach((fuel) => {
-                    query += '&fuel_source.eq=' + fuel
-                })
-            }
-            if (technologySelection && technologySelection.length > 0) {
-                technologySelection.forEach((tech) => {
-                    query += '&technology_type.eq=' + tech
-                })
-            }
-        }
-
-		loading = true
-
-		await fetch(baseURL + '/data/generation' + query, {
-			mode: 'cors',
-		}).then(function(a) {
-			return a.json();
-		}).then(function(a) {
-			data = a
-			preProcessData()
-			calcMinMax()
-		}).catch(() => {
-            loading = false
-        })
-
-		loading = false
-	}
-
-	function preProcessData() {
-		data = data.map(unit => {
-			unit.data = unit.data.map(d => {
-				if (typeof d.time == "string") {
-					return {
-						x: Date.parse(d.time),
-						y: d.value,
-					}
-				} else {
-					return d
-				}
-			})
-			return unit
-		})
-	}
-
-
-	/* PLOTTING */
-	let closest;
-
-	$: xMin = +Infinity;
-	$: xMax = -Infinity;
-	$: yMin = +Infinity;
-	$: yMax = -Infinity;
-
-	function calcMinMax() {
-		xMin = +Infinity;
-		xMax = -Infinity;
-		yMin = +Infinity;
-		yMax = -Infinity;
-		data.forEach(unit=> {
-			unit.data.forEach(d => {
-				if (d.x < xMin) xMin = d.x;
-				if (d.x > xMax) xMax = d.x;
-				if (d.y < yMin) yMin = d.y;
-				if (d.y > yMax) yMax = d.y;
-			})
-		})
-	}
-
-	$: points = data.reduce((points, unit) => {
-		return points.concat(unit.data.map(d => ({
-			x: d.x,
-			y: d.y,
-			unit
-		})));
-	}, []);
 
 	/* MAIN */
-	$: loading = false
 
 	onMount(async() => {
 		await fetch(baseURL + '/units',{
@@ -475,11 +389,11 @@
 		}).then(function (a) {
 			return a.json();
 		}).then(function (json) {
-			units = json
+            units.set(json)
 			filteredUnits = json
-			updateRegionSelections(units)
-			updateTechSelections(units)
-			updateSourceSelections(units)
+			updateRegionSelections(json)
+			updateTechSelections(json)
+			updateSourceSelections(json)
 		})
 	})
 
@@ -621,58 +535,19 @@
                         />
                     </div>
                     <!-- Search -->
-                    <div class="w-full p-2">
-                        <input
-                            type="text"
-                            class="
-                                form-control
-                                block
-                                w-full
-                                px-3
-                                py-1.5
-                                my-2
-                                text-base
-                                font-normal
-                                text-gray-700
-                                bg-white bg-clip-padding
-                                border border-solid border-gray-300
-                                rounded
-                                transition
-                                ease-in-out
-                                m-0
-                                focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none
-                            "
-                            placeholder="Search..."
-                            bind:value={search}
-                            on:input={filterUnits}
-                        />
+                    <div class="p-2">
+                        <Textfield placeholder="Search..." bind:value={search} onInput={filterUnits}></Textfield>
                     </div>
-                    <!-- Select All -->
                     <!-- Clear Selection -->
-                    <div class="flex flex-wrap p-2 h-36 border rounded border-gray-200 place-content-center justify-center ">
-                    <!-- Search Results -->
-                    <!-- Show the Unit ID and the Station Name-->
-                        {#if filteredUnits.length > 0}
-                        <div class="w-full overflow-auto h-36">
-                            {#each filteredUnits as item}
-                            <div class="w-full border-b border-gray-300">
-                                <div class="text-sm font-semibold">{item.duid}</div>
-                                <div class="text-xxs text-gray-400">{item.staion_name}</div>
-                            </div>
-                            {/each}
-                        </div>
-                        {:else}
-                        <div>
-                            No Content Found :(
-                        </div>
-                        {/if}
+                    <div class="h-36 px-2">
+                        <List bind:items={filteredUnits} titleProperty="duid" subtitleProperty="staion_name"></List>
                     </div>
-                    <div class="w-full pt-2 px-3">
+                    <div class="w-full pt-2 px-2">
                         <button
                             on:click={plotUnits}
-                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
-                            disabled={loading}>
-                            {loading ? "Loading" : "Plot"}
+                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 rounded"
+                            disabled={isLoading}>
+                            {isLoading ? "Loading" : "Plot"}
                         </button>
                     </div>
                   </div>
@@ -681,21 +556,9 @@
                   <div style="display:block; width:100%; height:450px;">
                     <div class="w-full pb-1 pt-2">Group By</div>
                     <div class="flex flex-wrap px-2 pb-2 pt-0.5">
-                        <div class="w-full flex flex-col items-center mx-auto">
-                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
-                                <input type="checkbox" class="mx-1" bind:checked={regionGroup}> Region
-                            </div>
-                        </div>
-                        <div class="w-full flex flex-col items-center mx-auto">
-                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
-                                <input type="checkbox" class="mx-1" bind:checked={techGroup}> Technology Type
-                            </div>
-                        </div>
-                        <div class="w-full flex flex-col items-center mx-auto">
-                            <div class="w-full px-4 my-1 p-0.5 items-center mx-auto">
-                                <input type="checkbox" class="mx-1" bind:checked={fuelGroup}> Fuel Source
-                            </div>
-                        </div>
+                        <Checkbox  bind:checked={regionGroup} text="Region"></Checkbox>
+                        <Checkbox  bind:checked={techGroup} text="Technology Type"></Checkbox>
+                        <Checkbox  bind:checked={fuelGroup} text="Fuel Source"></Checkbox>
                     </div>
                     <!-- Filters -->
                     <div class="w-full pb-1 pt-2">Filters</div>
@@ -739,8 +602,8 @@
                         <button
                             on:click={plotGrouped}
                             class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
-                            disabled={loading}>
-                            {loading ? "Loading" : "Plot"}
+                            disabled={isLoading}>
+                            {isLoading? "Loading" : "Plot"}
                         </button>
                     </div>
                   </div>
@@ -749,80 +612,9 @@
         </div>
 	</div>
 	<!-- Main Plot -->
-	{#if data.length == 0}
-	<div class="flex flex-wrap border md:w-7/12 place-content-center text-gray-600 justify-center rounded">
-		<div>
-			{loading ? "Loading" : "No Data to Plot :("}
-		</div>
-	</div>
-	{:else}
-	<div class="w-full md:w-7/12 rounded">
-		<div class="w-full h-full py-5 pb-12 pl-10">
-			<Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
-				<Pancake.Grid horizontal count={10} let:value let:last>
-					<div class="grid-line horizontal">
-						<span class="">{value} {last ? "MW" : ""}</span>
-					</div>
-				</Pancake.Grid>
-
-				<Pancake.Grid vertical count={5} let:value>
-					<div class="grid-line vertical"></div>
-					<span class="x-label">{
-						new Date(value).toLocaleString("en-gb", {
-							hour12: false,
-							hour: "2-digit",
-							minute: "2-digit",
-							second: "2-digit",
-						}) + "\n" + 
-						new Date(value).toLocaleString("en-gb", {
-							day: "numeric",
-							month: "2-digit",
-							year: "2-digit",
-						})
-					}</span>
-				</Pancake.Grid>
-
-				<Pancake.Svg>
-					{#each data as unit}
-						<Pancake.SvgLine data={unit.data} let:d>
-							<path class="data" {d}></path>
-						</Pancake.SvgLine>
-					{/each}
-
-					{#if closest}
-						<Pancake.SvgLine data={closest.unit.data} let:d>
-							<path class="highlight" {d}></path>
-						</Pancake.SvgLine>
-					{/if}
-				</Pancake.Svg>
-
-				{#if closest}
-					<Pancake.Point x={closest.x} y={closest.y}>
-						<span class="annotation-point"></span>
-						<div class="annotation" style="transform: translate(-{100 * ((closest.x - xMin)/(xMax-xMin))}%,0)">
-							<div class="font-bold">{closest.unit.unit.replace("+", " - ")}</div>
-							<div class="text-xs font-light text-gray-400 pb-0.5">{getUnitStationName(closest.unit.unit)}</div>
-							<span class="font-light">{new Date(closest.x).toLocaleString("en-gb", {
-								day: "numeric",
-								month: "2-digit",
-								year: "2-digit",
-							})}</span>
-							<span class="font-light">{new Date(closest.x).toLocaleString("en-gb", {
-								hour12: false,
-								hour: "2-digit",
-								minute: "2-digit",
-								second:"2-digit"
-							})}: {Math.round(closest.y)}MW</span>
-						</div>
-					</Pancake.Point>
-				{/if}
-
-				<Pancake.Quadtree data={points} bind:closest/>
-				
-			</Pancake.Chart>
-		</div>
-	</div>
-	{/if}
+    <div class="mt-10 md:w-7/12 h-4/5">
+        <Plot data={data}></Plot>
+    </div>
 </div>
 
 <style>

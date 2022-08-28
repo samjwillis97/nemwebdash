@@ -1,4 +1,10 @@
-<div class="w-full flex mx-auto">
+<script>
+    export let value = ""
+    export let placeholder = ""
+    export let onInput = function() {}
+</script>
+
+<div class="w-full">
     <input 
 		type="text"
 		class="
@@ -20,10 +26,15 @@
 			focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none
 		"
         bind:value={value}
-		placeholder={placeholder}/>
+		placeholder={placeholder}
+        on:input={onInput}
+    />
 </div>
 
-<script>
-    export let value = ""
-    export let placeholder = ""
-</script>
+<style>
+    input {
+		font-size: 14px;
+        padding: 0.5em
+    }
+
+</style>
