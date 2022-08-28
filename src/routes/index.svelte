@@ -10,9 +10,16 @@
 	import { onMount } from 'svelte';
     import { intersectMultiple } from '../common/array.js';
     import { getGroupedGenerationData, getUnitGenerationData } from '../services/generation.js';
-    import { baseURL } from '../services/config.js';
     import { loading } from '../stores/state.js';
     import { units } from '../stores/unit.js';
+    import { 
+        baseURL,
+        defaultEndDate,
+        defaultStartDate,
+        defaultAggregateFn,
+        defaultWindowNumber,
+        defaultWindowSelection,
+    } from '../services/config.js'
 
     let isLoading = false;
     loading.subscribe(value => {
@@ -68,7 +75,6 @@
 
 		const filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
 	}
-
 	async function plotUnits() {
 		if (!isLoading) {
             data = await getUnitGenerationData(
@@ -97,10 +103,8 @@
 
 
 	/* TIME RANGE */
-	let endDate = new Date();		// final date to query for
-	let startDate= new Date();		// first date to query for
-	let tempDate = endDate.getDate() - 7;	// used as a temporary store to set startdate as a week before now()
-	startDate.setDate(tempDate)		// sets startDate by default to a week prior to now
+	let endDate = defaultEndDate
+	let startDate= defaultStartDate
 
 
 	/* AGGREGATION FUNCTION */
@@ -116,7 +120,7 @@
 		"unique",
 		"distinct",
 	];
-	let functionSelection = 'mean'	// selected function by default
+	let functionSelection = defaultAggregateFn
 
 	function onAggFnChange(event) {
 		if (event.detail != null) {
@@ -127,11 +131,9 @@
 
 	/* WINDOW PERIOD */
 	// default window period selection
-	let windowNumber = 20
-	let windowSelection = {
-		label: 'min',
-		value: 'm',
-	}
+	let windowNumber = defaultWindowNumber
+	let windowSelection = defaultWindowSelection
+
 	// all available window periods
 	let windowUnit = [
 		{

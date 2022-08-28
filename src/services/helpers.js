@@ -10,7 +10,7 @@ export function setupDefaultConfig(config) {
     let endDate = defaultEndDate
     let startDate = defaultStartDate
     let windowNumber = defaultWindowNumber
-    let windowSelection = defaultWindowSelection
+    let windowSelection = defaultWindowSelection.value
     let aggregateFn = defaultAggregateFn
 
     if (config) {
