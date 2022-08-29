@@ -12,20 +12,32 @@
     import { getGroupedGenerationData, getUnitGenerationData } from '../services/generation.js';
     import { loading } from '../stores/state.js';
     import { units } from '../stores/unit.js';
+    import { getAllUnits } from '../services/units';
+    import { aggregateFnList, windowUnitList } from '../common/influxdb.js';
     import { 
-        baseURL,
         defaultEndDate,
         defaultStartDate,
         defaultAggregateFn,
         defaultWindowNumber,
         defaultWindowSelection,
     } from '../services/config.js'
+import { filterItems, getUniqueItems } from '../common/filters';
 
     let isLoading = false;
     loading.subscribe(value => {
         isLoading = value;
     })
 
+    let allUnits = []
+    units.subscribe(value => {
+        if (value && value.length > 0) {
+            allUnits = value
+            filteredUnits = value
+            regionList = getUniqueItems(value, function(value) {return value.region_id})
+            sourceList= getUniqueItems(value, function(value) {return value.fuel_source})
+            technologyList = getUniqueItems(value, function(value) {return value.technology_type})
+        }
+    })
 
 	/* UNITS DATA */
     let data = null
@@ -43,38 +55,48 @@
     }
 
 	function filterUnits() {
-		let filtered = $units
+		let filtered = allUnits
 
-		let regionFiltered = regionSelectFilter(filtered)
-		let techFiltered = techSelectFilter(filtered)
-		let sourceFiltered = fuelSelectFilter(filtered)
+		/* let regionFiltered = regionSelectFilter(filtered) */
+		let regionFiltered = filterItems(filtered, regionSelection, function(value) {return value.region_id})
+		let techFiltered = filterItems(filtered, technologySelection, function(value) {return value.technology_type})
+		let sourceFiltered = filterItems(filtered, sourceSelection, function(value) {return value.fuel_source})
 		let searchFiltered = searchFilter(filtered)
-
-        console.log("filter")
 
 		// Update Region Selections
 		if (filtered.length === techFiltered.length === sourceFiltered.length === searchFiltered.length) {
-			updateRegionSelections($units)
+
+            regionList = getUniqueItems(allUnits, function(value) {return value.region_id})
 		} else {
-			updateRegionSelections(intersectMultiple(searchFiltered, techFiltered, sourceFiltered))
+            regionList = getUniqueItems(
+                intersectMultiple(searchFiltered, techFiltered, sourceFiltered),
+                function(value) {return value.region_id}
+            )
 		}
 
 		// Update Tech Selections
 		if (filtered.length === regionFiltered.length === sourceFiltered.length === searchFiltered.length) {
-			updateTechSelections($units)
+            technologyList = getUniqueItems(allUnits, function(value) {return value.technology_type})
 		} else {
-			updateTechSelections(intersectMultiple(searchFiltered, regionFiltered, sourceFiltered))
+            technologyList = getUniqueItems(
+                intersectMultiple(searchFiltered, regionFiltered, sourceFiltered),
+                function(value) {return value.technology_type}
+            )
 		}
 
 		// Update Soruce Selections
 		if (filtered.length === regionFiltered.length === techFiltered.length === searchFiltered.length) {
-			updateSourceSelections($units)
+            sourceList = getUniqueItems(allUnits, function(value) {return value.fuel_source})
 		} else {
-			updateSourceSelections(intersectMultiple(searchFiltered, regionFiltered, techFiltered))
+            sourceList = getUniqueItems(
+                intersectMultiple(searchFiltered, regionFiltered, techFiltered),
+                function(value) {return value.fuel_source}
+            )
 		}
 
-		const filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
+		filteredUnits = intersectMultiple(regionFiltered, techFiltered, sourceFiltered, searchFiltered)
 	}
+
 	async function plotUnits() {
 		if (!isLoading) {
             data = await getUnitGenerationData(
@@ -106,20 +128,8 @@
 	let endDate = defaultEndDate
 	let startDate= defaultStartDate
 
-
 	/* AGGREGATION FUNCTION */
 	// all potential function options for flux query
-	let functionList = [
-		'mean',
-		"median",
-		"min",
-		"max",
-		"first",
-		'last',
-		"sum",
-		"unique",
-		"distinct",
-	];
 	let functionSelection = defaultAggregateFn
 
 	function onAggFnChange(event) {
@@ -128,132 +138,29 @@
 		}
 	}
 
-
 	/* WINDOW PERIOD */
 	// default window period selection
 	let windowNumber = defaultWindowNumber
 	let windowSelection = defaultWindowSelection
 
 	// all available window periods
-	let windowUnit = [
-		{
-			label: 'sec',
-			value: 's',
-		},
-		{
-			label: 'min',
-			value: 'm',
-		},
-		{
-			label: 'hr',
-			value: 'h',
-		},
-		{
-			label: 'day',
-			value: 'd',
-		},
-		{
-			label: 'week',
-			value: 'w',
-		},
-		{
-			label: 'month',
-			value: 'mo',
-		},
-	]
-
 	function onAggWindowPeriodChange(event) {
 		if (event.detail != null) {
 			windowSelection = event.detail
 		}
 	}
 
-
 	/* REGION FILTER */
-	let regionList = null		// It is assigned the value of all currently plotted units regions
-	let regionSelection = null	// it is assigned the current selection of regions 
-
-	// filters the given units using the current value of the selected regions (regionSelection)
-	function regionSelectFilter(units) {
-		let filtered = units
-		if (regionSelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < regionSelection.length; i++) {
-					if (regionSelection[i] == v.region_id) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	// updates the regionList to all the unique regions in the given units
-	function updateRegionSelections(units) {
-		regionList = [...new Set(units.map(v => {
-			return v.region_id
-		}))]
-	}
-
+	let regionList = null		
+	let regionSelection = null
 
 	/* TECHNOLOGY FILTER */
 	let technologyList = null
 	let technologySelection = null
 
-	function techSelectFilter(units) {
-		let filtered = units
-		if (technologySelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < technologySelection.length; i++) {
-					if (technologySelection[i] == v.technology_type) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	function updateTechSelections(units) {
-			technologyList= [...new Set(units.map(v => {
-				return v.technology_type
-			}))]
-	}
-
-
 	/* FUEL SOURCE FILTER */
 	let sourceList = null
 	let sourceSelection = null
-
-	function fuelSelectFilter(units) {
-		let filtered = units
-		if (sourceSelection != null) {
-			filtered = units.filter((v) => {
-				let filter = false
-				for (let i=0; i < sourceSelection.length; i++) {
-					if (sourceSelection[i] == v.fuel_source) {
-						filter = true
-						break
-					}
-				}
-				return filter
-			})
-		}
-		return filtered
-	}
-
-	function updateSourceSelections(units) {
-			sourceList = [...new Set(units.map(v => {
-				return v.fuel_source
-			}))]
-	}
-
 
 	/* SEARCH FILTER */
 	let search = null
@@ -283,19 +190,8 @@
     let techGroup = false
 
 	/* MAIN */
-
 	onMount(async() => {
-		await fetch(baseURL + '/units',{
-			mode: 'cors',
-		}).then(function (a) {
-			return a.json();
-		}).then(function (json) {
-            units.set(json)
-			filteredUnits = json
-			updateRegionSelections(json)
-			updateTechSelections(json)
-			updateSourceSelections(json)
-		})
+        await getAllUnits()
 	})
 
 </script>
@@ -324,7 +220,7 @@
 			<div class="flex w-full md:w-5/12">
 				<div class="w-full">
 					<Select
-						items={functionList}
+						items={aggregateFnList}
 						value={functionSelection}
 						placeholder="Function"
 						isClearable={false}
@@ -342,7 +238,7 @@
 			<div class="flex w-full md:w-3/12">
 				<div class="w-full">
 					<Select
-						items={windowUnit}
+						items={windowUnitList}
 						value={windowSelection}
 						placeholder="Unit"
 						isClearable={false}
