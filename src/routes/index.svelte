@@ -5,6 +5,7 @@
     import List from '../components/list.svelte';
     import MultiFilter from '../components/multiFilter.svelte';
 	import Select from 'svelte-select';
+    import UnitFilter from '../components/unitFilter.svelte';
 	import { DateInput } from 'date-picker-svelte';
 	import { Tab, Tabs, TabPanel, TabList } from 'svelte-tabs';
 	import { onMount } from 'svelte';
@@ -21,7 +22,7 @@
         defaultWindowNumber,
         defaultWindowSelection,
     } from '../services/config.js'
-import { filterItems, getUniqueItems } from '../common/filters';
+    import { filterItems, getUniqueItems } from '../common/filters';
 
     let isLoading = false;
     loading.subscribe(value => {
@@ -274,6 +275,7 @@ import { filterItems, getUniqueItems } from '../common/filters';
                 <TabList>
                     <Tab>Units</Tab>
                     <Tab>Grouped</Tab>
+                    <Tab>Testing</Tab>
                 </TabList>
                 <TabPanel>
                   <div style="display:block; width:100%; height:450px;">
@@ -340,6 +342,9 @@ import { filterItems, getUniqueItems } from '../common/filters';
                         </button>
                     </div>
                   </div>
+                </TabPanel>
+                <TabPanel>
+                    <UnitFilter></UnitFilter>
                 </TabPanel>
             </Tabs>
         </div>

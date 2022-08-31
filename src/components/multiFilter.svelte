@@ -11,10 +11,10 @@
 			selected = (event.detail.map((v) => {
 				return v.value
 			}))
-            callback()
 		} else {
-			selected = null
+			selected = []
 		}
+        callback()
 	}
 
 </script>
