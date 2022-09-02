@@ -124,6 +124,8 @@ export const selectedGeneratingUnits = derived(
         if ($unitsByGenerationRegionSelection.length > 0) {
             if (selected.length === 0) {
                 selected = $unitsByGenerationRegionSelection
+                noFuelSources = $unitsByGenerationRegionSelection
+                noTechnologyTypes = $unitsByGenerationRegionSelection
             } else {
                 selected = selected.filter((value) => $unitsByGenerationRegionSelection.indexOf(value) != -1)
                 noFuelSources = noFuelSources.filter((value) => $unitsByGenerationRegionSelection.indexOf(value) != -1)
@@ -147,10 +149,11 @@ export const selectedGeneratingUnits = derived(
             if (selected.length === 0) {
                 selected = $unitsByGenerationTechnologyTypeSelection
                 noRegions = $unitsByGenerationTechnologyTypeSelection
+                noFuelSources = $unitsByGenerationTechnologyTypeSelection
             } else {
                 selected = selected.filter((value) => $unitsByGenerationTechnologyTypeSelection.indexOf(value) != -1)
-                noRegions = noRegions.filter((value) => $unitsByGenerationFuelSourceSelection.indexOf(value) != -1)
-                noFuelSources = noFuelSources.filter((value) => $unitsByGenerationRegionSelection.indexOf(value) != -1)
+                noRegions = noRegions.filter((value) => $unitsByGenerationTechnologyTypeSelection.indexOf(value) != -1)
+                noFuelSources = noFuelSources.filter((value) => $unitsByGenerationTechnologyTypeSelection.indexOf(value) != -1)
             }
         }
 
