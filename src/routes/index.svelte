@@ -23,6 +23,12 @@
         defaultWindowSelection,
     } from '../services/config.js'
     import { filterItems, getUniqueItems } from '../common/filters';
+    import { 
+        selectedGeneratingUnits,
+        selectedGenerationRegions,
+        selectedGenerationFuelSources,
+        selectedGenerationTechnologyTypes
+    } from '../stores/generation/unit';
 
     let isLoading = false;
     loading.subscribe(value => {
@@ -100,12 +106,19 @@
 
 	async function plotUnits() {
 		if (!isLoading) {
+            /* data = await getUnitGenerationData( */
+            /*     getQueryConfig(), */
+            /*     filterUnits, */
+            /*     regionSelection, */
+            /*     sourceSelection, */
+            /*     technologySelection, */
+            /* ) */
             data = await getUnitGenerationData(
                 getQueryConfig(),
-                filterUnits,
-                regionSelection,
-                sourceSelection,
-                technologySelection,
+                $selectedGeneratingUnits,
+                $selectedGenerationRegions,
+                $selectedGenerationFuelSources,
+                $selectedGenerationTechnologyTypes,
             )
 		}
 	}
@@ -345,6 +358,14 @@
                 </TabPanel>
                 <TabPanel>
                     <UnitFilter></UnitFilter>
+                    <div class="w-full pt-2 px-2">
+                        <button
+                            on:click={plotUnits}
+                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 rounded"
+                            disabled={isLoading}>
+                            {isLoading ? "Loading" : "Plot"}
+                        </button>
+                    </div>
                 </TabPanel>
             </Tabs>
         </div>
