@@ -12,6 +12,10 @@ export const selectedGeneratingUnitsNoRegions = writable([])
 export const selectedGeneratingUnitsNoFuelSources = writable([])
 export const selectedGeneratingUnitsNoTechnologyTypes = writable([])
 
+export const regionGroupingSelected = writable(true)
+export const fuelSourceGroupingSelected = writable(false)
+export const technologyTypesGroupingSelected = writable(false)
+
 export const unitsByGenerationRegionSelection = derived(
     [
         generationUnits,

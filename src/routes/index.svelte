@@ -1,16 +1,13 @@
 <script>
-    /* import Checkbox from '../components/checkbox.svelte'; */
     import Plot from '../components/plot.svelte';
-    /* import MultiFilter from '../components/multiFilter.svelte'; */
 	import Select from 'svelte-select';
     import UnitFilter from '../components/unitFilter.svelte';
+    import GroupFilter from '../components/groupFilter.svelte';
 	import { DateInput } from 'date-picker-svelte';
 	import { Tab, Tabs, TabPanel, TabList } from 'svelte-tabs';
 	import { onMount } from 'svelte';
-    /* import { intersectMultiple } from '../common/array.js'; */
     import { getGroupedGenerationData, getUnitGenerationData } from '../services/generation.js';
     import { loading } from '../stores/state.js';
-    /* import { units } from '../stores/unit.js'; */
     import { getAllUnits } from '../services/units';
     import { aggregateFnList, windowUnitList } from '../common/influxdb.js';
     import { 
@@ -20,12 +17,14 @@
         defaultWindowNumber,
         defaultWindowSelection,
     } from '../services/config.js'
-    /* import { filterItems, getUniqueItems } from '../common/filters'; */
     import { 
         selectedGeneratingUnits,
         selectedGenerationRegions,
         selectedGenerationFuelSources,
-        selectedGenerationTechnologyTypes
+        selectedGenerationTechnologyTypes,
+        regionGroupingSelected,
+        fuelSourceGroupingSelected,
+        technologyTypesGroupingSelected,
     } from '../stores/generation/unit';
 
     let isLoading = false;
@@ -59,19 +58,20 @@
 		}
 	}
 
-	/* async function plotGrouped() { */
-	/* 	if (!isLoading) { */
-            /* data = await getGroupedGenerationData( */
-                /* getQueryConfig(), */
-                /* regionSelection, */
-                /* regionGroup, */
-                /* sourceSelection, */
-                /* fuelGroup, */
-                /* technologySelection, */
-                /* techGroup */
-            /* ) */
-	/* 	} */
-	/* } */
+
+	async function plotGrouped() {
+		if (!isLoading) {
+            data = await getGroupedGenerationData(
+                getQueryConfig(),
+                $selectedGenerationRegions,
+                $regionGroupingSelected,
+                $selectedGenerationFuelSources,
+                $fuelSourceGroupingSelected,
+                $selectedGenerationTechnologyTypes,
+                $technologyTypesGroupingSelected,
+            )
+		}
+	}
 
 
 	/* TIME RANGE */
@@ -100,18 +100,6 @@
 		}
 	}
 
-
-	function handleKeydown(event) {
-		if (event.key == "Enter") {
-			plotUnits()
-		}
-	}
-
-/* 	/1* PLOTTING DATA *1/ */
-/*     let regionGroup = true */
-/*     let fuelGroup = false */
-/*     let techGroup = false */
-
 	/* MAIN */
 	onMount(async() => {
         await getAllUnits()
@@ -125,82 +113,19 @@
 	</title>
 </svelte:head>
 
-<svelte:window on:keydown={handleKeydown}/>
-
 <!-- Responsive Grid -->
 <div class="flex flex-wrap content-center justify-center h-screen">
-	<!-- Left Side Menu -->
-	<div class="w-full md:w-3/12 pr-4 place-content-center text-sm text-gray-600">
-		<!-- Aggregation -->
-		<div class="flex flex-wrap pb-1 pt-2">
-			<!-- Left Side -->
-			<div class="flex w-full md:w-5/12">Aggregation</div>
-			<!-- Right Side -->
-			<div class="flex w-full md:w-7/12 pl-6">Windowing Time Period</div>
-		</div>
-		<div class="flex flex-wrap justify-between px-2 pt-0.5 pb-2">
-			<!-- Left Side -->
-			<div class="flex w-full md:w-5/12">
-				<div class="w-full">
-					<Select
-						items={aggregateFnList}
-						value={functionSelection}
-						placeholder="Function"
-						isClearable={false}
-						isMulti={false}
-						isSearchable={true}
-						showIndicator={true}
-						on:select={onAggFnChange}
-					/>
-				</div>
-			</div>
-			<!-- Right Side -->
-			<div class="flex w-full md:w-3/12 pl-2 pr-0">
-				<input class="w-full ml-3 border rounded" type="number" bind:value={windowNumber}/>
-			</div>
-			<div class="flex w-full md:w-3/12">
-				<div class="w-full">
-					<Select
-						items={windowUnitList}
-						value={windowSelection}
-						placeholder="Unit"
-						isClearable={false}
-						isMulti={false}
-						isSearchable={true}
-						showIndicator={true}
-						on:select={onAggWindowPeriodChange}
-					/>
-				</div>
-			</div>
-
-		</div>
-		<!-- DateTime -->
-		<div class="flex flex-wrap pb-1 pt-2">
-			<!-- Left Side -->
-			<div class="flex w-full md:w-6/12">Start Date</div>
-			<!-- Right Side -->
-			<div class="flex w-full pl-3 md:w-6/12">End Date</div>
-		</div>
-		<div class="flex flex-wrap px-2 pb-2 pt-0.5">
-			<!-- Left Side -->
-			<div class="flex w-full md:w-6/12 text-xs">
-				<DateInput bind:value={startDate}/>
-			</div>
-			<!-- Right Side -->
-			<div class="flex w-full justify-end md:w-6/12 text-xs">
-				<DateInput bind:value={endDate}/>
-			</div>
-		</div>
+    <!-- Left Side Menu -->
+	<div class="pt-16 w-full md:w-3/12 pr-4 place-content-center text-sm text-gray-600">
         <div>
-            <div class="pt-2 border-b border-neutral-300 flex flex-wrap"></div>
             <Tabs>
                 <TabList>
                     <Tab>Units</Tab>
-                    <!-- <Tab>Grouped</Tab> -->
+                    <Tab>Grouped</Tab>
                 </TabList>
                 <TabPanel>
                     <UnitFilter></UnitFilter>
-                    <div class="w-full pt-2 px-2">
+                    <div class="w-full px-2 pt-6">
                         <button
                             on:click={plotUnits}
                             class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 rounded"
@@ -209,44 +134,69 @@
                         </button>
                     </div>
                 </TabPanel>
-                <!-- <TabPanel>
-                  <div style="display:block; width:100%; height:450px;">
-                    <div class="w-full pb-1 pt-2">Group By</div>
-                    <div class="flex flex-wrap px-2 pb-2 pt-0.5">
-                        <Checkbox  bind:checked={regionGroup} text="Region"></Checkbox>
-                        <Checkbox  bind:checked={techGroup} text="Technology Type"></Checkbox>
-                        <Checkbox  bind:checked={fuelGroup} text="Fuel Source"></Checkbox>
-                    </div>
-                    <div class="w-full pb-1 pt-2">Filters</div>
-                    <div class="px-2 py-0.5">
-                        <MultiFilter items={regionList} placeholder="Region" bind:selected={regionSelection} callback={filterUnits}></MultiFilter>
-                    </div>
-                    <div class="px-2 py-0.5">
-                        <MultiFilter items={technologyList} placeholder="Technology" bind:selected={technologySelection} callback={filterUnits}></MultiFilter>
-                    </div>
-                    <div class="px-2 py-0.5">
-                        <MultiFilter items={sourceList} placeholder="Fuel Source" bind:selected={sourceSelection} callback={filterUnits}></MultiFilter>
-                    </div>
-                    <div class="w-full pt-2 px-3">
+                <TabPanel>
+                    <GroupFilter></GroupFilter>
+                    <div class="w-full px-2 pt-6">
                         <button
                             on:click={plotGrouped}
-                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 px-4 rounded"
+                            class="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-2 rounded"
                             disabled={isLoading}>
-                            {isLoading? "Loading" : "Plot"}
+                            {isLoading ? "Loading" : "Plot"}
                         </button>
                     </div>
-                  </div>
-                </TabPanel> -->
+                </TabPanel>
             </Tabs>
         </div>
 	</div>
 	<!-- Main Plot -->
-    <div class="mt-10 md:w-7/12 h-4/5">
+    <div class="flex flex-wrap w-full md:w-7/12 h-5/6 pb-10 place-content-center">
+        <div class="flex flex-wrap mb-3 w-full justify-around content-center text-sm text-gray-600">
+            <div class="w-1/6">
+                <div class="py-2">Aggregation</div>
+                <Select
+                    items={aggregateFnList}
+                    value={functionSelection}
+                    placeholder="Function"
+                    isClearable={false}
+                    isMulti={false}
+                    isSearchable={true}
+                    showIndicator={true}
+                    on:select={onAggFnChange}
+                />
+            </div>
+            <div class="w-1/6">
+                <div class="py-2">Window</div>
+                <div class="flex">
+                    <input class="border rounded w-16 mr-2" type="number" bind:value={windowNumber}/>
+                    <Select
+                        items={windowUnitList}
+                        value={windowSelection}
+                        placeholder="Unit"
+                        isClearable={false}
+                        isMulti={false}
+                        isSearchable={true}
+                        showIndicator={true}
+                        on:select={onAggWindowPeriodChange}
+                    />
+                </div>
+            </div>
+            <div class="w-1/6">
+                <div class="py-2 mb-1.5">Start Date</div>
+                <DateInput bind:value={startDate}/>
+            </div>
+            <div class="w-1/6">
+                <div class="py-2 mb-1.5">End Date</div>
+                <DateInput bind:value={startDate}/>
+            </div>
+        </div>
         <Plot data={data}></Plot>
     </div>
 </div>
 
 <style>
+    :global(body) {
+		--date-input-width: 155px;
+	}
 	input {
 		font-size: inherit;
 		font-family: inherit;

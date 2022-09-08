@@ -84,7 +84,7 @@
     </div>
 </div>
 {:else}
-<div class="w-full h-full rounded">
+<div class="flex flex-wrap w-full h-full rounded place-content-center justify-center">
     <div class="w-full h-full py-5 pb-12 pl-10">
         <Pancake.Chart x1={xMin} x2={xMax} y1={yMin} y2={yMax}>
             <Pancake.Grid horizontal count={10} let:value let:last>
